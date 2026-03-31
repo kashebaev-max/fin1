@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 export default function AIPage() {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<{role: "ai" | "user"; text: string}[]>([
     { role: "ai" as const, text: "Сәлеметсіз бе! Мен Жанара — AI-бухгалтер. Все расчёты по НК РК 2026 (НДС 16%, ИПН 10%/15%, вычет 30 МРП). Спрашивайте!" }
   ]);
   const [input, setInput] = useState("");
