@@ -10,6 +10,7 @@ const MODULES = [
   { key: "documents", name: "Документы", icon: "◈", path: "/dashboard/documents" },
   { key: "accounting", name: "Бухгалтерия", icon: "▦", path: "/dashboard/accounting" },
   { key: "warehouse", name: "Склад", icon: "▣", path: "/dashboard/warehouse" },
+  { key: "assets", name: "Основные средства", icon: "🏗", path: "/dashboard/assets" },
   { key: "cashbox", name: "Касса", icon: "◉", path: "/dashboard/cashbox" },
   { key: "bank", name: "Банк", icon: "◆", path: "/dashboard/bank" },
   { key: "hr", name: "Кадры и ЗП", icon: "◎", path: "/dashboard/hr" },
@@ -47,7 +48,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex" style={{ background: "var(--bg)", color: "var(--t1)" }}>
       <aside className="flex flex-col flex-shrink-0 transition-all duration-300"
-        style={{ width: collapsed ? 56 : 210, background: "#0A0D12", borderRight: "1px solid var(--brd)" }}>
+        style={{ width: collapsed ? 56 : 220, background: "#0A0D12", borderRight: "1px solid var(--brd)" }}>
         <div className="flex items-center gap-2 cursor-pointer"
           style={{ padding: collapsed ? "14px 10px" : "14px 16px", borderBottom: "1px solid var(--brd)" }}
           onClick={() => setCollapsed(!collapsed)}>
@@ -61,8 +62,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             return (
               <button key={mod.key} onClick={() => router.push(mod.path)}
                 className="flex items-center gap-2.5 rounded-lg border-none cursor-pointer transition-all text-left"
-                style={{ padding: collapsed ? "8px" : "8px 10px", background: active ? "var(--accent-dim)" : "transparent", color: active ? "var(--accent)" : "var(--t3)", fontSize: 12, fontWeight: active ? 600 : 400, justifyContent: collapsed ? "center" : "flex-start" }}>
-                <span className="flex-shrink-0" style={{ fontSize: 14 }}>{mod.icon}</span>
+                style={{ padding: collapsed ? "8px" : "7px 10px", background: active ? "var(--accent-dim)" : "transparent", color: active ? "var(--accent)" : "var(--t3)", fontSize: 12, fontWeight: active ? 600 : 400, justifyContent: collapsed ? "center" : "flex-start" }}>
+                <span className="flex-shrink-0" style={{ fontSize: 13 }}>{mod.icon}</span>
                 {!collapsed && <span>{mod.name}</span>}
               </button>
             );
