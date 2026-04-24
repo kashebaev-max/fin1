@@ -36,9 +36,15 @@ export default function LandingPage() {
             <a href="#features" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Возможности</a>
             <a href="#ai" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>AI Жанара</a>
             <a href="#faq" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>FAQ</a>
-            <button onClick={toggleTheme} className="text-sm cursor-pointer border-none bg-transparent" style={{ color: "var(--t3)" }}>
-              {theme === "dark" ? "☀️" : "🌙"}
+
+            {/* Theme toggle with label */}
+            <button onClick={toggleTheme}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer border-none"
+              style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)", fontSize: 12 }}>
+              <span style={{ fontSize: 14 }}>{theme === "dark" ? "☀️" : "🌙"}</span>
+              <span className="font-medium">{theme === "dark" ? "Светлая" : "Тёмная"}</span>
             </button>
+
             <Link href="/auth" className="no-underline">
               <button className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer" style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t2)" }}>Войти</button>
             </Link>
@@ -55,14 +61,14 @@ export default function LandingPage() {
           <span style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", letterSpacing: "0.05em" }}>⚡ НОВЫЙ НАЛОГОВЫЙ КОДЕКС РК 2026 • ЗРК 214-VIII</span>
         </div>
         <h1 className="text-5xl font-extrabold mb-6" style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}>
-          Бухгалтерия, которой<br />
+          Умный помощник<br />
           <span style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            не нужен бухгалтер
+            для вашего бухгалтера
           </span>
         </h1>
         <p className="text-lg mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
           Современная ERP-система для бизнеса Казахстана. Всё по НК РК 2026.<br />
-          AI-помощник Жанара, автоматические расчёты, 12 типов документов.
+          Автоматизирует рутину, контролирует сроки, помогает не упустить важное.
         </p>
         <div className="flex gap-3 justify-center mb-6">
           <Link href="/auth" className="no-underline">
@@ -103,21 +109,40 @@ export default function LandingPage() {
       <section id="ai" className="max-w-6xl mx-auto px-6 py-16">
         <div className="rounded-2xl p-12 text-center" style={{ background: "linear-gradient(135deg, #6366F110, #A855F710)", border: "1px solid #A855F730" }}>
           <div className="text-xs font-bold tracking-widest mb-3" style={{ color: "#A855F7" }}>✦ AI ЖАНАРА</div>
-          <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>Ваш бухгалтер 24/7</h2>
-          <p className="text-base mb-6 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
-            Спросите Жанару о налогах, зарплатах, проводках — она знает НК РК 2026 наизусть.<br />
-            Рассчитает ИПН и ОПВ, объяснит НДС 16%, подскажет сроки сдачи ФНО.
+          <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>Умный AI-ассистент для бухгалтера</h2>
+          <p className="text-base mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
+            Жанара не просто отвечает на вопросы — она <b>видит все процессы</b> в вашей системе,<br />
+            анализирует данные и <b>подсказывает, что важно не упустить</b>.
           </p>
+
+          <div className="grid grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
+            <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-xl mb-2">💬</div>
+              <div className="text-sm font-bold mb-1" style={{ color: "var(--t1)" }}>Консультации</div>
+              <div className="text-xs" style={{ color: "var(--t3)" }}>По налогам, зарплатам, проводкам, отчётности. Все нормы НК РК 2026.</div>
+            </div>
+            <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-xl mb-2">👁</div>
+              <div className="text-sm font-bold mb-1" style={{ color: "var(--t1)" }}>Мониторинг</div>
+              <div className="text-xs" style={{ color: "var(--t3)" }}>Видит документы, проводки, остатки, зарплаты — анализирует ваш бизнес в реальном времени.</div>
+            </div>
+            <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-xl mb-2">🔔</div>
+              <div className="text-sm font-bold mb-1" style={{ color: "var(--t1)" }}>Напоминания</div>
+              <div className="text-xs" style={{ color: "var(--t3)" }}>Предупреждает о сроках сдачи ФНО, платежах, дебиторке — ничего не пропустите.</div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-3 gap-3 max-w-3xl mx-auto mb-6">
             {[
-              "«Рассчитай зарплату 400 000 ₸»",
-              "«НДС 16% — что изменилось?»",
-              "«Какие сроки сдачи ФНО 300?»",
+              "«Что у меня по дебиторке?»",
+              "«Когда сдавать ФНО 300?»",
+              "«Какой оборот за март?»",
             ].map((q, i) => (
               <div key={i} className="p-3 rounded-lg text-xs italic" style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t2)" }}>{q}</div>
             ))}
           </div>
-          <div className="text-xs" style={{ color: "var(--t3)" }}>Уникальный AI-бухгалтер в Казахстане с глубоким знанием НК РК 2026</div>
+          <div className="text-xs" style={{ color: "var(--t3)" }}>Уникальный AI-ассистент в Казахстане с полным доступом к вашим данным</div>
         </div>
       </section>
 
@@ -150,17 +175,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Benefits (заменяет сравнение с 1С) */}
+      {/* Benefits */}
       <section className="max-w-5xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Почему Finstat.kz?</h2>
-          <p className="text-sm" style={{ color: "var(--t2)" }}>Современное решение для казахстанского бизнеса</p>
+          <p className="text-sm" style={{ color: "var(--t2)" }}>Современный инструмент для казахстанского бухгалтера и предпринимателя</p>
         </div>
         <div className="grid grid-cols-2 gap-4">
           {[
             { icon: "🌐", title: "Работает в браузере", desc: "Ничего не нужно устанавливать. Открыли finstat.kz — и работаете. Хоть с ноутбука, хоть с телефона." },
             { icon: "⚡", title: "Всегда актуальные обновления", desc: "НК РК меняется — система обновляется автоматически. Никаких принудительных перезагрузок и пауз в работе." },
-            { icon: "🧠", title: "AI-помощник Жанара", desc: "Задавайте вопросы о налогах на русском языке, получайте мгновенные расчёты по НК РК 2026." },
+            { icon: "🧠", title: "AI-помощник Жанара", desc: "Отвечает на вопросы, анализирует процессы, напоминает о сроках — помогает бухгалтеру работать быстрее." },
             { icon: "🇰🇿", title: "Казахстанский продукт", desc: "Разработано в Казахстане для Казахстана. Понимаем специфику бизнеса и налогов РК." },
             { icon: "📱", title: "Мобильный доступ", desc: "Смотрите остатки в кассе, создавайте документы, проверяйте отчёты — прямо со смартфона." },
             { icon: "🔒", title: "Безопасность данных", desc: "Данные хранятся на защищённых серверах. Резервное копирование автоматическое. Только вы видите свои данные." },
@@ -183,7 +208,7 @@ export default function LandingPage() {
         </div>
         <div className="flex flex-col gap-3">
           {[
-            { q: "Нужен ли бухгалтер для работы с Finstat.kz?", a: "Нет. Система спроектирована так, чтобы с ней мог работать предприниматель без бухгалтерского образования. AI-помощник Жанара отвечает на все вопросы по НК РК 2026." },
+            { q: "Для кого подходит Finstat.kz?", a: "Для бухгалтеров, которые хотят работать быстрее и с меньшим количеством ошибок. Также для предпринимателей и собственников бизнеса, которые хотят видеть состояние своих финансов в режиме реального времени. Система упрощает работу бухгалтера, но не заменяет его полностью." },
             { q: "Мои данные в безопасности?", a: "Да. Данные хранятся на защищённых серверах (Frankfurt, EU). Каждый пользователь видит только свои данные. Резервное копирование автоматическое." },
             { q: "Как подготовить отчёт ФНО?", a: "Автоматически. Система собирает все данные за период из проводок и документов. Нужно только проверить и отправить в КГД." },
             { q: "Работает ли на телефоне?", a: "Да, полноценно. Открываете finstat.kz в браузере телефона и получаете всю систему в кармане." },
