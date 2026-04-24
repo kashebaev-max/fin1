@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <aside className="flex flex-col flex-shrink-0 transition-all duration-300" style={{ width: collapsed ? 56 : 220, background: "var(--sidebar)", borderRight: "1px solid var(--brd)" }}>
         <div className="flex items-center gap-2 cursor-pointer" style={{ padding: collapsed ? "14px 10px" : "14px 16px", borderBottom: "1px solid var(--brd)" }} onClick={() => setCollapsed(!collapsed)}>
           <div className="flex items-center justify-center font-extrabold text-white flex-shrink-0" style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #6366F1, #A855F7)", fontSize: 15 }}>F</div>
-          {!collapsed && <div><div className="text-sm font-extrabold">FinERP</div><div className="text-[9px] tracking-widest" style={{ color: "var(--t3)" }}>НК РК 2026</div></div>}
+          {!collapsed && <div><div className="text-sm font-extrabold">Finstat.kz</div><div className="text-[9px] tracking-widest" style={{ color: "var(--t3)" }}>НК РК 2026</div></div>}
         </div>
         <nav className="flex-1 flex flex-col gap-0.5 p-1.5 overflow-y-auto">
           {visibleModules.map((mod, i) => {

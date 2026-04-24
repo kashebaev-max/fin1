@@ -28,13 +28,13 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center font-extrabold text-white" style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #6366F1, #A855F7)", fontSize: 16 }}>F</div>
             <div>
-              <div className="text-lg font-extrabold">FinERP</div>
+              <div className="text-lg font-extrabold">Finstat.kz</div>
               <div className="text-[9px] tracking-widest" style={{ color: "var(--t3)" }}>НК РК 2026</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <a href="#features" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Возможности</a>
-            <a href="#pricing" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Тарифы</a>
+            <a href="#ai" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>AI Жанара</a>
             <a href="#faq" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>FAQ</a>
             <button onClick={toggleTheme} className="text-sm cursor-pointer border-none bg-transparent" style={{ color: "var(--t3)" }}>
               {theme === "dark" ? "☀️" : "🌙"}
@@ -62,7 +62,7 @@ export default function LandingPage() {
         </h1>
         <p className="text-lg mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
           Современная ERP-система для бизнеса Казахстана. Всё по НК РК 2026.<br />
-          AI-помощник Жанара, автоматические расчёты, 12 типов документов — <b>от 4 990 ₸ в месяц</b>.
+          AI-помощник Жанара, автоматические расчёты, 12 типов документов.
         </p>
         <div className="flex gap-3 justify-center mb-6">
           <Link href="/auth" className="no-underline">
@@ -77,11 +77,11 @@ export default function LandingPage() {
           </a>
         </div>
         <div className="text-xs" style={{ color: "var(--t3)" }}>
-          ✓ Без установки &nbsp;&nbsp; ✓ 30 дней бесплатно &nbsp;&nbsp; ✓ Данные под защитой &nbsp;&nbsp; ✓ Поддержка на русском и казахском
+          ✓ Без установки &nbsp;&nbsp; ✓ Работает в браузере &nbsp;&nbsp; ✓ Данные под защитой &nbsp;&nbsp; ✓ Поддержка на русском и казахском
         </div>
       </section>
 
-      {/* Stats section */}
+      {/* Stats */}
       <section className="max-w-6xl mx-auto px-6 py-10">
         <div className="grid grid-cols-4 gap-4">
           {[
@@ -100,7 +100,7 @@ export default function LandingPage() {
       </section>
 
       {/* AI Жанара spotlight */}
-      <section className="max-w-6xl mx-auto px-6 py-16">
+      <section id="ai" className="max-w-6xl mx-auto px-6 py-16">
         <div className="rounded-2xl p-12 text-center" style={{ background: "linear-gradient(135deg, #6366F110, #A855F710)", border: "1px solid #A855F730" }}>
           <div className="text-xs font-bold tracking-widest mb-3" style={{ color: "#A855F7" }}>✦ AI ЖАНАРА</div>
           <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>Ваш бухгалтер 24/7</h2>
@@ -117,7 +117,7 @@ export default function LandingPage() {
               <div key={i} className="p-3 rounded-lg text-xs italic" style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t2)" }}>{q}</div>
             ))}
           </div>
-          <div className="text-xs" style={{ color: "var(--t3)" }}>Никто другой в Казахстане не предлагает AI-бухгалтера с таким уровнем знания НК РК</div>
+          <div className="text-xs" style={{ color: "var(--t3)" }}>Уникальный AI-бухгалтер в Казахстане с глубоким знанием НК РК 2026</div>
         </div>
       </section>
 
@@ -150,76 +150,27 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Comparison with 1С */}
+      {/* Benefits (заменяет сравнение с 1С) */}
       <section className="max-w-5xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Почему не 1С?</h2>
-          <p className="text-sm" style={{ color: "var(--t2)" }}>Сравните сами</p>
+          <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Почему Finstat.kz?</h2>
+          <p className="text-sm" style={{ color: "var(--t2)" }}>Современное решение для казахстанского бизнеса</p>
         </div>
-        <div className="rounded-xl overflow-hidden" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-          <table style={{ width: "100%" }}>
-            <thead>
-              <tr style={{ background: "var(--bg)" }}>
-                <th className="text-left p-4 text-xs font-bold uppercase tracking-wider" style={{ color: "var(--t3)" }}>Критерий</th>
-                <th className="text-left p-4 text-xs font-bold uppercase" style={{ color: "#EF4444" }}>1С</th>
-                <th className="text-left p-4 text-xs font-bold uppercase" style={{ color: "#10B981" }}>FinERP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ["Установка", "Desktop + сервер, 1С-специалист", "Браузер, ничего устанавливать"],
-                ["Стоимость старта", "80 000 – 500 000 ₸", "Бесплатно"],
-                ["Стоимость в год", "150 000 – 2 000 000 ₸ (с внедрением)", "60 000 – 360 000 ₸"],
-                ["Обучение", "1-3 месяца + специалист", "Самостоятельно, интуитивно"],
-                ["Обновления", "Принудительные, останавливают работу", "Автоматически, в облаке"],
-                ["НК РК 2026", "Есть, но требует обновления", "Встроено, актуально"],
-                ["AI-помощник", "Нет", "✦ Жанара встроена"],
-                ["Мобильный доступ", "Ограниченный", "Полноценный"],
-                ["Самостоятельная работа", "Нужен 1С-специалист", "Да, сами"],
-              ].map((row, i) => (
-                <tr key={i}>
-                  <td className="p-3 text-sm font-semibold" style={{ borderTop: "1px solid var(--brd)" }}>{row[0]}</td>
-                  <td className="p-3 text-xs" style={{ color: "#EF4444", borderTop: "1px solid var(--brd)" }}>{row[1]}</td>
-                  <td className="p-3 text-xs" style={{ color: "#10B981", borderTop: "1px solid var(--brd)" }}>{row[2]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="max-w-6xl mx-auto px-6 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Честные тарифы</h2>
-          <p className="text-sm" style={{ color: "var(--t2)" }}>Без скрытых платежей и платных внедрений</p>
-        </div>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {[
-            { name: "Бесплатный", price: "0", features: ["1 пользователь", "Базовый функционал", "До 50 документов/мес", "Email-поддержка"], color: "#6B7280", popular: false },
-            { name: "Базовый", price: "4 990", features: ["До 3 пользователей", "Все типы документов", "Без ограничений по объёму", "Приоритетная поддержка"], color: "#3B82F6", popular: false },
-            { name: "Профессионал", price: "9 990", features: ["До 10 пользователей", "Все ФНО с автозаполнением", "AI Жанара без ограничений", "Интеграции с банками"], color: "#8B5CF6", popular: true },
-            { name: "Корпоративный", price: "29 990", features: ["Без ограничений", "Персональный менеджер", "API интеграции", "Консультации бухгалтера"], color: "#F59E0B", popular: false },
-          ].map((p, i) => (
-            <div key={i} className="rounded-xl p-6 relative" style={{ background: "var(--card)", border: p.popular ? `2px solid ${p.color}` : "1px solid var(--brd)", transform: p.popular ? "scale(1.02)" : "none" }}>
-              {p.popular && <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold text-white" style={{ background: p.color }}>ПОПУЛЯРНЫЙ</div>}
-              <div className="text-sm font-bold mb-1" style={{ color: p.color }}>{p.name}</div>
-              <div className="text-3xl font-extrabold mb-1">{p.price} ₸</div>
-              <div className="text-[11px] mb-4" style={{ color: "var(--t3)" }}>в месяц</div>
-              <div className="flex flex-col gap-2 mb-6">
-                {p.features.map((f, j) => (
-                  <div key={j} className="flex items-start gap-2 text-xs" style={{ color: "var(--t2)" }}>
-                    <span style={{ color: "#10B981" }}>✓</span>
-                    <span>{f}</span>
-                  </div>
-                ))}
+            { icon: "🌐", title: "Работает в браузере", desc: "Ничего не нужно устанавливать. Открыли finstat.kz — и работаете. Хоть с ноутбука, хоть с телефона." },
+            { icon: "⚡", title: "Всегда актуальные обновления", desc: "НК РК меняется — система обновляется автоматически. Никаких принудительных перезагрузок и пауз в работе." },
+            { icon: "🧠", title: "AI-помощник Жанара", desc: "Задавайте вопросы о налогах на русском языке, получайте мгновенные расчёты по НК РК 2026." },
+            { icon: "🇰🇿", title: "Казахстанский продукт", desc: "Разработано в Казахстане для Казахстана. Понимаем специфику бизнеса и налогов РК." },
+            { icon: "📱", title: "Мобильный доступ", desc: "Смотрите остатки в кассе, создавайте документы, проверяйте отчёты — прямо со смартфона." },
+            { icon: "🔒", title: "Безопасность данных", desc: "Данные хранятся на защищённых серверах. Резервное копирование автоматическое. Только вы видите свои данные." },
+          ].map((b, i) => (
+            <div key={i} className="rounded-xl p-5 flex gap-4" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-3xl flex-shrink-0">{b.icon}</div>
+              <div>
+                <div className="text-sm font-bold mb-1">{b.title}</div>
+                <div className="text-xs" style={{ color: "var(--t3)", lineHeight: 1.6 }}>{b.desc}</div>
               </div>
-              <Link href="/auth" className="no-underline">
-                <button className="w-full py-2.5 rounded-lg font-semibold text-xs cursor-pointer"
-                  style={{ background: p.popular ? p.color : "transparent", color: p.popular ? "#fff" : "var(--t1)", border: p.popular ? "none" : "1px solid var(--brd)" }}>
-                  Начать
-                </button>
-              </Link>
             </div>
           ))}
         </div>
@@ -232,12 +183,12 @@ export default function LandingPage() {
         </div>
         <div className="flex flex-col gap-3">
           {[
-            { q: "Нужен ли бухгалтер для работы с FinERP?", a: "Нет. Система спроектирована так, чтобы с ней мог работать предприниматель без бухгалтерского образования. AI-помощник Жанара отвечает на все вопросы по НК РК 2026." },
-            { q: "Мои данные в безопасности?", a: "Да. Данные хранятся на защищённых серверах Supabase (Frankfurt, EU). Каждый пользователь видит только свои данные. Резервное копирование автоматическое." },
-            { q: "Можно ли перенести данные из 1С?", a: "Да. Мы помогаем с миграцией контрагентов, товаров, остатков через Excel-импорт. Свяжитесь с поддержкой." },
+            { q: "Нужен ли бухгалтер для работы с Finstat.kz?", a: "Нет. Система спроектирована так, чтобы с ней мог работать предприниматель без бухгалтерского образования. AI-помощник Жанара отвечает на все вопросы по НК РК 2026." },
+            { q: "Мои данные в безопасности?", a: "Да. Данные хранятся на защищённых серверах (Frankfurt, EU). Каждый пользователь видит только свои данные. Резервное копирование автоматическое." },
             { q: "Как подготовить отчёт ФНО?", a: "Автоматически. Система собирает все данные за период из проводок и документов. Нужно только проверить и отправить в КГД." },
             { q: "Работает ли на телефоне?", a: "Да, полноценно. Открываете finstat.kz в браузере телефона и получаете всю систему в кармане." },
-            { q: "Что с обновлениями при изменении НК?", a: "Обновления автоматические. В день вступления в силу нового закона — система уже работает по новым правилам." },
+            { q: "Что с обновлениями при изменении НК РК?", a: "Обновления автоматические. В день вступления в силу нового закона — система уже работает по новым правилам." },
+            { q: "На каких языках поддержка?", a: "Поддержка доступна на русском и казахском языках. Интерфейс — на русском." },
           ].map((f, i) => (
             <details key={i} className="rounded-xl p-4 cursor-pointer" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
               <summary className="text-sm font-semibold" style={{ color: "var(--t1)" }}>{f.q}</summary>
@@ -251,7 +202,7 @@ export default function LandingPage() {
       <section className="max-w-4xl mx-auto px-6 py-16 text-center">
         <div className="rounded-2xl p-12" style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)" }}>
           <h2 className="text-3xl font-extrabold mb-4 text-white" style={{ letterSpacing: "-0.02em" }}>Попробуйте бесплатно</h2>
-          <p className="text-base mb-6 text-white opacity-90">30 дней полного доступа. Никаких обязательств. Отмена в один клик.</p>
+          <p className="text-base mb-6 text-white opacity-90">Никаких обязательств. Полный доступ к функционалу. Начните за минуту.</p>
           <Link href="/auth" className="no-underline">
             <button className="px-8 py-4 rounded-xl font-semibold border-none cursor-pointer" style={{ background: "#fff", color: "#6366F1", fontSize: 15 }}>
               Начать сейчас →
@@ -264,7 +215,7 @@ export default function LandingPage() {
       <footer style={{ borderTop: "1px solid var(--brd)" }}>
         <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
           <div className="text-xs" style={{ color: "var(--t3)" }}>
-            © 2026 FinERP. Все права защищены. Казахстан • НК РК 2026
+            © 2026 Finstat.kz. Все права защищены. Казахстан • НК РК 2026
           </div>
           <div className="flex gap-4">
             <Link href="/auth" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Войти</Link>

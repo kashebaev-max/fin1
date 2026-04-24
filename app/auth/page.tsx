@@ -23,10 +23,7 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
+    setError(""); setSuccess(""); setLoading(true);
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -35,8 +32,7 @@ export default function AuthPage() {
         router.refresh();
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
+          email, password,
           options: { data: { full_name: fullName, company_name: companyName } },
         });
         if (error) throw error;
@@ -58,17 +54,16 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-extrabold text-white"
-              style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)" }}>F</div>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-extrabold text-white" style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)" }}>F</div>
             <div>
-              <div className="text-2xl font-extrabold" style={{ color: "var(--t1)" }}>FinERP</div>
+              <div className="text-2xl font-extrabold" style={{ color: "var(--t1)" }}>Finstat.kz</div>
               <div className="text-xs tracking-widest" style={{ color: "var(--t3)" }}>КАЗАХСТАН • НК РК 2026</div>
             </div>
           </div>
           <p className="text-sm" style={{ color: "var(--t3)" }}>Бухгалтерия, склад, касса, документы — всё в одном месте</p>
         </div>
 
-        <div className="rounded-2xl p-8" style={{ background: "var(--card)", border: "1px solid var(--brd)", transition: "background 0.3s, border-color 0.3s" }}>
+        <div className="rounded-2xl p-8" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
           <div className="flex gap-2 mb-6">
             <button onClick={() => { setIsLogin(true); setError(""); }}
               className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
