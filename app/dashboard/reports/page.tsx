@@ -2,9 +2,64 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-browser";
-import { TAX, TAX_COMPUTED, fmtMoney, calcSalary } from "@/lib/tax2026";
+import { TAX, fmtMoney, calcSalary } from "@/lib/tax2026";
 
-type Tab = "list" | "balance" | "fno910" | "fno200" | "fno300" | "fno100";
+type FNOCategory = "main" | "kpn" | "mineral" | "ipn" | "nds" | "excise" | "other" | "special";
+
+interface FNO {
+  code: string;
+  fullName: string;
+  desc: string;
+  period: string;
+  deadline: string;
+  category: FNOCategory;
+  autoFill?: boolean;
+}
+
+const ALL_FNO: FNO[] = [
+  { code: "100.00", fullName: "Декларация по КПН", desc: "Корпоративный подоходный налог (20%)", period: "Годовая", deadline: "до 31 марта", category: "main", autoFill: true },
+  { code: "200.00", fullName: "Декларация по ИПН и СН", desc: "ИПН 10%/15%, СН 6%, ОПВ, ВОСМС", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "main", autoFill: true },
+  { code: "300.00", fullName: "Декларация по НДС", desc: "Налог на добавленную стоимость (16%)", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "main", autoFill: true },
+  { code: "910.00", fullName: "Упрощённая декларация", desc: "Для субъектов малого бизнеса на СНР (4%)", period: "Раз в полугодие", deadline: "15 фев. и 15 авг.", category: "main", autoFill: true },
+  { code: "101.01", fullName: "Авансовые платежи по КПН (до декларации)", desc: "Авансовые платежи КПН в 1 квартале", period: "Разовая", deadline: "до 20 января", category: "kpn" },
+  { code: "101.02", fullName: "Авансовые платежи по КПН (после декларации)", desc: "Авансовые платежи после сдачи годовой декларации", period: "Разовая", deadline: "до 20 апреля", category: "kpn" },
+  { code: "101.03", fullName: "Расчёт КПН у источника (резидент)", desc: "КПН у источника с резидентов", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "kpn" },
+  { code: "101.04", fullName: "Расчёт КПН у источника (нерезидент)", desc: "КПН у источника с нерезидентов", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "kpn" },
+  { code: "110.00", fullName: "Декларация по КПН для недропользователей", desc: "Специальная декларация для недропользователей", period: "Годовая", deadline: "до 31 марта", category: "mineral" },
+  { code: "150.00", fullName: "Декларация по подписному бонусу", desc: "Подписной бонус недропользователей", period: "Разовая", deadline: "по графику", category: "mineral" },
+  { code: "641.00", fullName: "Декларация по рентному налогу на экспорт", desc: "Рентный налог с экспорта нефти и газа", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "mineral" },
+  { code: "220.00", fullName: "Декларация по ИПН (для физлиц на ОУР)", desc: "ИПН физических лиц на общеустановленном режиме", period: "Годовая", deadline: "до 31 марта", category: "ipn" },
+  { code: "250.00", fullName: "Декларация об активах и обязательствах", desc: "Всеобщее декларирование — активы", period: "Годовая", deadline: "до 15 сентября", category: "ipn" },
+  { code: "270.00", fullName: "Декларация о доходах и имуществе", desc: "Всеобщее декларирование — доходы физлиц", period: "Годовая", deadline: "до 15 сентября", category: "ipn" },
+  { code: "851.00", fullName: "Декларация по единому платежу", desc: "Единый платёж (ИПН+ОПВ+ВОСМС+СО+СН)", period: "Ежемесячно", deadline: "до 25 числа", category: "ipn" },
+  { code: "860.00", fullName: "Расчёт единого земельного налога", desc: "Для крестьянских хозяйств", period: "Годовая", deadline: "до 31 марта", category: "ipn" },
+  { code: "880.00", fullName: "Декларация для самозанятых", desc: "Новый налог с самозанятых (2026)", period: "Ежемесячно", deadline: "до 25 числа", category: "ipn" },
+  { code: "328.00", fullName: "Заявление о ввозе товаров (ЕАЭС)", desc: "НДС при импорте из стран ЕАЭС", period: "Ежемесячно", deadline: "до 20 числа", category: "nds" },
+  { code: "870.00", fullName: "Декларация по КПН/НДС нерезидента", desc: "НДС по работам/услугам нерезидентов", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "nds" },
+  { code: "400.00", fullName: "Декларация по акцизам", desc: "Алкоголь, табак, ГСМ, автомобили", period: "Ежемесячно", deadline: "до 20 числа", category: "excise" },
+  { code: "500.00", fullName: "Декларация по плате за эмиссии", desc: "Плата за эмиссии в окружающую среду", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "other" },
+  { code: "510.00", fullName: "Декларация по платежам (компенсация)", desc: "Исторические затраты недропользователей", period: "По графику", deadline: "По графику", category: "other" },
+  { code: "531.00", fullName: "Декларация по плате за лесные пользования", desc: "Плата за использование лесных ресурсов", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "other" },
+  { code: "590.00", fullName: "Декларация по плате за водные ресурсы", desc: "Плата за водопользование", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "other" },
+  { code: "600.00", fullName: "Декларация по плате за радиочастотный спектр", desc: "Для операторов связи", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "other" },
+  { code: "700.00", fullName: "Декларация по налогам на транспорт/землю/имущество", desc: "Транспортный, земельный, имущественный налоги", period: "Годовая", deadline: "до 31 марта", category: "other" },
+  { code: "701.01", fullName: "Расчёт текущих платежей (транспорт/земля/имущество)", desc: "Авансовые платежи в течение года", period: "Ежегодно", deadline: "до 15 февраля", category: "other" },
+  { code: "710.00", fullName: "Декларация по налогу на игорный бизнес", desc: "Для букмекерских контор и тотализаторов", period: "Ежеквартально", deadline: "до 15 числа 2-го мес.", category: "special" },
+  { code: "920.00", fullName: "Декларация для КФХ на ЕЗН", desc: "Крестьянские/фермерские хозяйства", period: "Годовая", deadline: "до 31 марта", category: "special" },
+];
+
+const CATEGORY_NAMES: Record<FNOCategory, { name: string; color: string; icon: string }> = {
+  main: { name: "Основные (автозаполнение)", color: "#10B981", icon: "⭐" },
+  kpn: { name: "КПН и корпоративные", color: "#8B5CF6", icon: "🏢" },
+  ipn: { name: "ИПН и физические лица", color: "#F59E0B", icon: "👤" },
+  nds: { name: "НДС и внешнеэкономические", color: "#EC4899", icon: "🌐" },
+  excise: { name: "Акцизы", color: "#EF4444", icon: "🍾" },
+  other: { name: "Прочие налоги и платежи", color: "#3B82F6", icon: "📋" },
+  mineral: { name: "Недропользование", color: "#6B7280", icon: "⛏" },
+  special: { name: "Специальные режимы", color: "#14B8A6", icon: "🎯" },
+};
+
+type Tab = "list" | "balance" | "100.00" | "200.00" | "300.00" | "910.00";
 
 export default function ReportsPage() {
   const supabase = createClient();
@@ -15,14 +70,14 @@ export default function ReportsPage() {
   const [profile, setProfile] = useState<any>(null);
   const [periodFrom, setPeriodFrom] = useState(new Date().getFullYear() + "-01-01");
   const [periodTo, setPeriodTo] = useState(new Date().toISOString().slice(0, 10));
-  const [userId, setUserId] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<FNOCategory | "all">("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    setUserId(user.id);
     const [j, e, d, p] = await Promise.all([
       supabase.from("journal_entries").select("*").eq("user_id", user.id).order("entry_date"),
       supabase.from("employees").select("*").eq("user_id", user.id).eq("status", "active"),
@@ -66,42 +121,40 @@ export default function ReportsPage() {
     if (!content) return;
     const w = window.open("", "_blank");
     if (w) {
-      w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
-        <style>body{font-family:'Times New Roman',serif;padding:40px;font-size:13px;line-height:1.6;color:#111}
-        table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #333;padding:5px 8px;font-size:12px}
-        th{background:#f0f0f0;font-weight:700}.r{text-align:right}.c{text-align:center}
-        h2{text-align:center}h3{text-align:center;color:#555}
-        @media print{body{padding:20px}}</style></head><body>${content.innerHTML}</body></html>`);
+      w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + title + '</title><style>body{font-family:Times New Roman,serif;padding:40px;font-size:13px;line-height:1.6;color:#111}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #333;padding:5px 8px;font-size:12px}th{background:#f0f0f0;font-weight:700}.r{text-align:right}.c{text-align:center}h2{text-align:center}h3{text-align:center;color:#555}@media print{body{padding:20px}}</style></head><body>' + content.innerHTML + '</body></html>');
       w.document.close();
       setTimeout(() => w.print(), 400);
     }
   }
 
-  const reportsList = [
-    { key: "balance", name: "Бухгалтерский баланс", icon: "📊", color: "#6366F1", desc: "Активы и пассивы организации" },
-    { key: "fno910", name: "ФНО 910.00", icon: "📋", color: "#10B981", desc: "Упрощённая декларация (ставка 4%)" },
-    { key: "fno200", name: "ФНО 200.00", icon: "📋", color: "#F59E0B", desc: "Декларация по ИПН 10%/15% и СН 6%" },
-    { key: "fno300", name: "ФНО 300.00", icon: "📋", color: "#EC4899", desc: "Декларация по НДС 16%" },
-    { key: "fno100", name: "ФНО 100.00", icon: "📋", color: "#8B5CF6", desc: "Декларация по КПН 20%" },
-  ];
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "list", label: "📋 Все отчёты" },
-    { key: "balance", label: "📊 Баланс" },
-    { key: "fno910", label: "910.00" },
-    { key: "fno200", label: "200.00" },
-    { key: "fno300", label: "300.00" },
-    { key: "fno100", label: "100.00" },
-  ];
+  const categories: (FNOCategory | "all")[] = ["all", "main", "kpn", "ipn", "nds", "excise", "other", "mineral", "special"];
+  const filteredFNO = ALL_FNO.filter(f =>
+    (categoryFilter === "all" || f.category === categoryFilter) &&
+    (search === "" || f.code.includes(search) || f.fullName.toLowerCase().includes(search.toLowerCase()) || f.desc.toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="text-xs" style={{ color: "var(--t3)" }}>
+        Все {ALL_FNO.length} форм налоговой отчётности по Приказу МФ РК №695 от 12.11.2025 • НК РК 2026
+      </div>
+
       <div className="flex gap-2 flex-wrap">
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+        <button onClick={() => setTab("list")}
+          className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+          style={{ background: tab === "list" ? "var(--accent)" : "transparent", color: tab === "list" ? "#fff" : "var(--t3)", border: tab === "list" ? "none" : "1px solid var(--brd)" }}>
+          📋 Все ФНО ({ALL_FNO.length})
+        </button>
+        <button onClick={() => setTab("balance")}
+          className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+          style={{ background: tab === "balance" ? "var(--accent)" : "transparent", color: tab === "balance" ? "#fff" : "var(--t3)", border: tab === "balance" ? "none" : "1px solid var(--brd)" }}>
+          📊 Бух. баланс
+        </button>
+        {(["910.00", "200.00", "300.00", "100.00"] as const).map(code => (
+          <button key={code} onClick={() => setTab(code)}
             className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer"
-            style={{ background: tab === t.key ? "var(--accent)" : "transparent", color: tab === t.key ? "#fff" : "var(--t3)", border: tab === t.key ? "none" : "1px solid var(--brd)" }}>
-            {t.label}
+            style={{ background: tab === code ? "var(--accent)" : "transparent", color: tab === code ? "#fff" : "var(--t3)", border: tab === code ? "none" : "1px solid var(--brd)" }}>
+            ⚡ {code}
           </button>
         ))}
       </div>
@@ -112,131 +165,145 @@ export default function ReportsPage() {
           <input type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)} style={{ width: 150 }} />
           <span className="text-xs" style={{ color: "var(--t3)" }}>—</span>
           <input type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)} style={{ width: 150 }} />
-          <button onClick={() => printReport(tabs.find(t => t.key === tab)?.label || "Отчёт")}
+          <button onClick={() => printReport("Отчёт")}
             className="px-4 py-2 rounded-lg text-white text-xs font-semibold border-none cursor-pointer ml-auto" style={{ background: "var(--accent)" }}>
             🖨 Печать
           </button>
         </div>
       )}
 
-      {/* ═══ СПИСОК ОТЧЁТОВ ═══ */}
       {tab === "list" && (
-        <div className="grid grid-cols-3 gap-3">
-          {reportsList.map((r, i) => (
-            <button key={i} onClick={() => setTab(r.key as Tab)}
-              className="rounded-xl p-5 text-left cursor-pointer transition-all hover:-translate-y-0.5"
-              style={{ background: "var(--card)", border: "1px solid var(--brd)", borderLeft: `3px solid ${r.color}` }}>
-              <div className="flex items-center gap-2 mb-1"><span className="text-lg">{r.icon}</span><span className="text-[13px] font-bold">{r.name}</span></div>
-              <div className="text-[11px]" style={{ color: "var(--t3)" }}>{r.desc}</div>
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="flex gap-3 items-center">
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск: код формы или название..." style={{ maxWidth: 400 }} />
+            <span className="text-xs" style={{ color: "var(--t3)" }}>Найдено: {filteredFNO.length} из {ALL_FNO.length}</span>
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {categories.map(c => (
+              <button key={c} onClick={() => setCategoryFilter(c)}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer"
+                style={{
+                  background: categoryFilter === c ? (c === "all" ? "var(--accent)" : CATEGORY_NAMES[c as FNOCategory]?.color) : "transparent",
+                  color: categoryFilter === c ? "#fff" : "var(--t3)",
+                  border: categoryFilter === c ? "none" : "1px solid var(--brd)",
+                }}>
+                {c === "all" ? "Все категории" : (CATEGORY_NAMES[c as FNOCategory]?.icon + " " + CATEGORY_NAMES[c as FNOCategory]?.name)}
+              </button>
+            ))}
+          </div>
+
+          {(categoryFilter === "all" ? Object.keys(CATEGORY_NAMES) as FNOCategory[] : [categoryFilter as FNOCategory]).map(cat => {
+            const catForms = filteredFNO.filter(f => f.category === cat);
+            if (catForms.length === 0) return null;
+            const catInfo = CATEGORY_NAMES[cat];
+            return (
+              <div key={cat} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 mt-2">
+                  <span style={{ fontSize: 16 }}>{catInfo.icon}</span>
+                  <div className="text-sm font-bold" style={{ color: catInfo.color }}>{catInfo.name}</div>
+                  <div className="text-[10px]" style={{ color: "var(--t3)" }}>• {catForms.length} форм</div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {catForms.map(f => (
+                    <div key={f.code} className="rounded-xl p-4" style={{ background: "var(--card)", border: "1px solid var(--brd)", borderLeft: "3px solid " + catInfo.color }}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-bold font-mono" style={{ color: catInfo.color }}>{f.code}</span>
+                          {f.autoFill && <span className="text-[9px] font-bold px-2 py-0.5 rounded" style={{ background: "#10B98120", color: "#10B981" }}>⚡ АВТО</span>}
+                        </div>
+                        {f.autoFill && (
+                          <button onClick={() => setTab(f.code as Tab)}
+                            className="text-[10px] font-semibold cursor-pointer border-none bg-transparent" style={{ color: "var(--accent)" }}>
+                            Открыть →
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[13px] font-semibold mb-1">{f.fullName}</div>
+                      <div className="text-[11px] mb-2" style={{ color: "var(--t3)" }}>{f.desc}</div>
+                      <div className="flex justify-between text-[10px]" style={{ color: "var(--t3)" }}>
+                        <span>📅 {f.period}</span>
+                        <span>⏱ {f.deadline}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="rounded-xl p-4 mt-4" style={{ background: "#F59E0B10", border: "1px solid #F59E0B30" }}>
+            <div className="text-xs font-bold mb-2" style={{ color: "#F59E0B" }}>ℹ️ Как сдавать формы ФНО</div>
+            <div className="text-[11px]" style={{ color: "var(--t2)", lineHeight: 1.7 }}>
+              Формы налоговой отчётности сдаются в электронном виде через портал Кабинет налогоплательщика (cabinet.salyk.kz) или через СОНО. ЭЦП обязательна. За несвоевременную сдачу — штраф от 5 МРП (21 625 ₸) и выше.
+            </div>
+          </div>
+        </>
       )}
 
       <div id="report-content">
 
-      {/* ═══ БУХГАЛТЕРСКИЙ БАЛАНС ═══ */}
       {tab === "balance" && (() => {
         const assets = [
-          { code: "I", name: "КРАТКОСРОЧНЫЕ АКТИВЫ", bold: true, amount: 0 },
-          { code: "1010", name: "Денежные средства в кассе", bold: false, amount: Math.max(0, getAccountBalance("1010")) },
-          { code: "1030", name: "Денежные средства на р/с", bold: false, amount: Math.max(0, getAccountBalance("1030")) },
-          { code: "1210", name: "Краткосрочная ДЗ покупателей", bold: false, amount: Math.max(0, getAccountBalance("1210")) },
-          { code: "1310", name: "Запасы (сырьё и материалы)", bold: false, amount: Math.max(0, getAccountBalance("1310")) },
-          { code: "1330", name: "Товары", bold: false, amount: Math.max(0, getAccountBalance("1330")) },
-          { code: "1420", name: "НДС к зачёту", bold: false, amount: Math.max(0, getAccountBalance("1420")) },
-          { code: "II", name: "ДОЛГОСРОЧНЫЕ АКТИВЫ", bold: true, amount: 0 },
-          { code: "2410", name: "Основные средства", bold: false, amount: Math.max(0, getAccountBalance("2410")) },
-          { code: "2420", name: "Амортизация ОС (минус)", bold: false, amount: -Math.max(0, getAccountBalance("2420", "P")) },
+          { code: "1010", name: "Денежные средства в кассе", amount: Math.max(0, getAccountBalance("1010")) },
+          { code: "1030", name: "Денежные средства на р/с", amount: Math.max(0, getAccountBalance("1030")) },
+          { code: "1210", name: "Краткосрочная ДЗ покупателей", amount: Math.max(0, getAccountBalance("1210")) },
+          { code: "1310", name: "Запасы (сырьё и материалы)", amount: Math.max(0, getAccountBalance("1310")) },
+          { code: "1330", name: "Товары", amount: Math.max(0, getAccountBalance("1330")) },
+          { code: "1420", name: "НДС к зачёту", amount: Math.max(0, getAccountBalance("1420")) },
+          { code: "2410", name: "Основные средства", amount: Math.max(0, getAccountBalance("2410")) },
         ];
-        const shortTermAssets = assets.filter(a => a.code.startsWith("1")).reduce((s, a) => s + a.amount, 0);
-        const longTermAssets = assets.filter(a => a.code.startsWith("2")).reduce((s, a) => s + a.amount, 0);
-        const totalAssets = shortTermAssets + longTermAssets;
-        assets[0].amount = shortTermAssets;
-        assets[7].amount = longTermAssets;
-
+        const totalAssets = assets.reduce((s, a) => s + a.amount, 0);
         const liabilities = [
-          { code: "III", name: "КРАТКОСРОЧНЫЕ ОБЯЗАТЕЛЬСТВА", bold: true, amount: 0 },
-          { code: "3120", name: "Обязательства по ИПН", bold: false, amount: Math.max(0, getAccountBalance("3120", "P")) },
-          { code: "3130", name: "НДС к уплате", bold: false, amount: Math.max(0, getAccountBalance("3130", "P")) },
-          { code: "3150", name: "Социальный налог", bold: false, amount: Math.max(0, getAccountBalance("3150", "P")) },
-          { code: "3220", name: "Обязательства по ОПВ", bold: false, amount: Math.max(0, getAccountBalance("3220", "P")) },
-          { code: "3310", name: "КЗ поставщикам", bold: false, amount: Math.max(0, getAccountBalance("3310", "P")) },
-          { code: "3350", name: "Задолженность по ЗП", bold: false, amount: Math.max(0, getAccountBalance("3350", "P")) },
-          { code: "IV", name: "КАПИТАЛ", bold: true, amount: 0 },
-          { code: "5110", name: "Уставный капитал", bold: false, amount: Math.max(0, getAccountBalance("5110", "P")) },
-          { code: "5510", name: "Нераспределённая прибыль", bold: false, amount: Math.max(0, getAccountBalance("5510", "P") + getAccountBalance("6010", "P") - getAccountBalance("7010") - getAccountBalance("7110") - getAccountBalance("7210")) },
+          { code: "3120", name: "Обязательства по ИПН", amount: Math.max(0, getAccountBalance("3120", "P")) },
+          { code: "3130", name: "НДС к уплате", amount: Math.max(0, getAccountBalance("3130", "P")) },
+          { code: "3310", name: "КЗ поставщикам", amount: Math.max(0, getAccountBalance("3310", "P")) },
+          { code: "3350", name: "Задолженность по ЗП", amount: Math.max(0, getAccountBalance("3350", "P")) },
+          { code: "5110", name: "Уставный капитал", amount: Math.max(0, getAccountBalance("5110", "P")) },
         ];
-        const shortTermLiab = liabilities.filter(l => l.code.startsWith("3")).reduce((s, l) => s + l.amount, 0);
-        const capital = liabilities.filter(l => l.code.startsWith("5")).reduce((s, l) => s + l.amount, 0);
-        const totalLiab = shortTermLiab + capital;
-        liabilities[0].amount = shortTermLiab;
-        liabilities[7].amount = capital;
-
+        const totalLiab = liabilities.reduce((s, l) => s + l.amount, 0);
         return (
           <div className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
             <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>БУХГАЛТЕРСКИЙ БАЛАНС</h2>
-            <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>
-              {profile?.company_name || "Организация"} • БИН: {profile?.company_bin || "—"} • на {periodTo}
-            </p>
+            <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>{profile?.company_name || "Организация"} • на {periodTo}</p>
             <div className="grid grid-cols-2 gap-4">
-              {/* АКТИВЫ */}
               <div>
-                <table>
-                  <thead><tr><th className="text-left p-2 text-[11px]" style={{ background: "#6366F120", color: "#6366F1" }} colSpan={2}>АКТИВ</th><th className="r p-2 text-[11px]" style={{ background: "#6366F120", color: "#6366F1" }}>Сумма, ₸</th></tr></thead>
-                  <tbody>{assets.map((a, i) => (
-                    <tr key={i}><td className="p-2 text-[12px]" style={{ fontWeight: a.bold ? 700 : 400, borderBottom: "1px solid var(--brd)", color: a.bold ? "var(--t1)" : "var(--t2)" }} colSpan={a.bold ? 2 : 1}>{a.bold ? "" : a.code}</td>{!a.bold && <td className="p-2 text-[12px]" style={{ borderBottom: "1px solid var(--brd)" }}>{a.name}</td>}<td className="p-2 text-[12px] r" style={{ fontWeight: a.bold ? 700 : 400, borderBottom: "1px solid var(--brd)" }}>{a.amount !== 0 ? fmtMoney(a.amount) : ""}</td></tr>
-                  ))}
-                  <tr style={{ background: "var(--bg)" }}><td colSpan={2} className="p-2 text-[13px]" style={{ fontWeight: 700 }}>ИТОГО АКТИВ</td><td className="p-2 text-[13px] r" style={{ fontWeight: 700, color: "#6366F1" }}>{fmtMoney(totalAssets)}</td></tr>
-                  </tbody>
-                </table>
+                <table><thead><tr><th className="text-left p-2 text-[11px]" style={{ background: "#6366F120", color: "#6366F1" }} colSpan={2}>АКТИВ</th><th className="r p-2 text-[11px]" style={{ background: "#6366F120", color: "#6366F1" }}>₸</th></tr></thead>
+                <tbody>{assets.map((a, i) => (<tr key={i}><td className="p-2 text-[12px]" style={{ borderBottom: "1px solid var(--brd)" }}>{a.code}</td><td className="p-2 text-[12px]" style={{ borderBottom: "1px solid var(--brd)" }}>{a.name}</td><td className="p-2 text-[12px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{a.amount !== 0 ? fmtMoney(a.amount) : ""}</td></tr>))}
+                <tr style={{ background: "var(--bg)" }}><td colSpan={2} className="p-2 text-[13px]" style={{ fontWeight: 700 }}>ИТОГО</td><td className="p-2 text-[13px] r" style={{ fontWeight: 700, color: "#6366F1" }}>{fmtMoney(totalAssets)}</td></tr>
+                </tbody></table>
               </div>
-              {/* ПАССИВЫ */}
               <div>
-                <table>
-                  <thead><tr><th className="text-left p-2 text-[11px]" style={{ background: "#10B98120", color: "#10B981" }} colSpan={2}>ПАССИВ</th><th className="r p-2 text-[11px]" style={{ background: "#10B98120", color: "#10B981" }}>Сумма, ₸</th></tr></thead>
-                  <tbody>{liabilities.map((l, i) => (
-                    <tr key={i}><td className="p-2 text-[12px]" style={{ fontWeight: l.bold ? 700 : 400, borderBottom: "1px solid var(--brd)", color: l.bold ? "var(--t1)" : "var(--t2)" }} colSpan={l.bold ? 2 : 1}>{l.bold ? "" : l.code}</td>{!l.bold && <td className="p-2 text-[12px]" style={{ borderBottom: "1px solid var(--brd)" }}>{l.name}</td>}<td className="p-2 text-[12px] r" style={{ fontWeight: l.bold ? 700 : 400, borderBottom: "1px solid var(--brd)" }}>{l.amount !== 0 ? fmtMoney(l.amount) : ""}</td></tr>
-                  ))}
-                  <tr style={{ background: "var(--bg)" }}><td colSpan={2} className="p-2 text-[13px]" style={{ fontWeight: 700 }}>ИТОГО ПАССИВ</td><td className="p-2 text-[13px] r" style={{ fontWeight: 700, color: "#10B981" }}>{fmtMoney(totalLiab)}</td></tr>
-                  </tbody>
-                </table>
+                <table><thead><tr><th className="text-left p-2 text-[11px]" style={{ background: "#10B98120", color: "#10B981" }} colSpan={2}>ПАССИВ</th><th className="r p-2 text-[11px]" style={{ background: "#10B98120", color: "#10B981" }}>₸</th></tr></thead>
+                <tbody>{liabilities.map((l, i) => (<tr key={i}><td className="p-2 text-[12px]" style={{ borderBottom: "1px solid var(--brd)" }}>{l.code}</td><td className="p-2 text-[12px]" style={{ borderBottom: "1px solid var(--brd)" }}>{l.name}</td><td className="p-2 text-[12px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{l.amount !== 0 ? fmtMoney(l.amount) : ""}</td></tr>))}
+                <tr style={{ background: "var(--bg)" }}><td colSpan={2} className="p-2 text-[13px]" style={{ fontWeight: 700 }}>ИТОГО</td><td className="p-2 text-[13px] r" style={{ fontWeight: 700, color: "#10B981" }}>{fmtMoney(totalLiab)}</td></tr>
+                </tbody></table>
               </div>
             </div>
-            {totalAssets !== totalLiab && <p className="text-xs mt-3" style={{ color: "#EF4444" }}>⚠ Баланс не сходится: разница {fmtMoney(Math.abs(totalAssets - totalLiab))} ₸</p>}
           </div>
         );
       })()}
 
-      {/* ═══ ФНО 910.00 ═══ */}
-      {tab === "fno910" && (() => {
+      {tab === "910.00" && (() => {
         const revenue = getRevenue();
-        const taxRate = TAX.SNR_RATE;
-        const tax = Math.round(revenue * taxRate);
-        const ipn = Math.round(tax * 0.5);
-        const sn = Math.round(tax * 0.5);
+        const tax = Math.round(revenue * TAX.SNR_RATE);
         return (
           <div className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФОРМА 910.00 — УПРОЩЁННАЯ ДЕКЛАРАЦИЯ</h2>
-            <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>{profile?.company_name} • БИН: {profile?.company_bin} • Период: {periodFrom} — {periodTo}</p>
-            <table>
-              <thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#10B98120" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#10B98120", width: 200 }}>Сумма, ₸</th></tr></thead>
-              <tbody>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.001 — Доход за налоговый период</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(revenue)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.002 — Среднесписочная численность работников</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{employees.length}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.004 — Сумма налогов ({(taxRate * 100)}%)</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(tax)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.005 — в т.ч. ИПН (1/2)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(ipn)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.006 — в т.ч. СН (1/2)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(sn)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.007 — ФОТ за период</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(getTotalFOT() * 6)}</td></tr>
-              </tbody>
-            </table>
-            <p className="text-[10px] mt-3" style={{ color: "var(--t3)" }}>Ставка {taxRate * 100}% по НК РК 2026. Порог: {fmtMoney(TAX.SNR_THRESHOLD_MRP)} МРП ({fmtMoney(TAX.SNR_THRESHOLD_MRP * TAX.MRP)} ₸) в год.</p>
+            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФНО 910.00 — УПРОЩЁННАЯ ДЕКЛАРАЦИЯ</h2>
+            <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>{profile?.company_name} • {periodFrom} — {periodTo}</p>
+            <table><thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#10B98120" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#10B98120", width: 200 }}>Сумма, ₸</th></tr></thead>
+            <tbody>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.001 — Доход за налоговый период</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(revenue)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.002 — Среднесписочная численность</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{employees.length}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.004 — Сумма налогов ({TAX.SNR_RATE * 100}%)</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(tax)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.005 — в т.ч. ИПН (1/2)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(Math.round(tax * 0.5))}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>910.00.006 — в т.ч. СН (1/2)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(Math.round(tax * 0.5))}</td></tr>
+            </tbody></table>
           </div>
         );
       })()}
 
-      {/* ═══ ФНО 200.00 ═══ */}
-      {tab === "fno200" && (() => {
+      {tab === "200.00" && (() => {
         const fot = getTotalFOT();
         const totalIPN = employees.reduce((a: number, e: any) => a + calcSalary(Number(e.salary)).ipn, 0);
         const totalOPV = employees.reduce((a: number, e: any) => a + calcSalary(Number(e.salary)).opv, 0);
@@ -248,71 +315,60 @@ export default function ReportsPage() {
         const months = 3;
         return (
           <div className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФОРМА 200.00 — ДЕКЛАРАЦИЯ ПО ИПН И СН</h2>
+            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФНО 200.00 — ДЕКЛАРАЦИЯ ПО ИПН И СН</h2>
             <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>{profile?.company_name} • за квартал</p>
-            <table>
-              <thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#F59E0B20" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#F59E0B20" }}>За месяц</th><th className="r p-3 text-[12px]" style={{ background: "#F59E0B20" }}>За квартал</th></tr></thead>
-              <tbody>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.01 — Численность работников</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{employees.length}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{employees.length}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.01 — ФОТ начисленный</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(fot)}</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(fot * months)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.01 — ИПН исчисленный (10%)</td><td className="p-3 text-[13px] r" style={{ color: "#EF4444", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalIPN)}</td><td className="p-3 text-[13px] r" style={{ color: "#EF4444", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalIPN * months)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.02 — ОПВ (10%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPV)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPV * months)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.02 — ОПВР (3.5%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPVR)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPVR * months)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.03 — СО (5%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSO)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSO * months)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.03 — СН (6%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSN)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSN * months)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.03 — ВОСМС (2%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalVOSMS)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalVOSMS * months)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>200.03 — ООСМС (3%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOOSMS)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOOSMS * months)}</td></tr>
-              </tbody>
-            </table>
-            <p className="text-[10px] mt-3" style={{ color: "var(--t3)" }}>Расчёт по НК РК 2026: ИПН 10%, вычет 30 МРП, СН 6% (без вычета СО), ОПВР 3.5%.</p>
+            <table><thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#F59E0B20" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#F59E0B20" }}>За месяц</th><th className="r p-3 text-[12px]" style={{ background: "#F59E0B20" }}>За квартал</th></tr></thead>
+            <tbody>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>Численность работников</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{employees.length}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{employees.length}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>ФОТ начисленный</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(fot)}</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(fot * months)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>ИПН (10%)</td><td className="p-3 text-[13px] r" style={{ color: "#EF4444", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalIPN)}</td><td className="p-3 text-[13px] r" style={{ color: "#EF4444", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalIPN * months)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>ОПВ (10%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPV)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPV * months)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>ОПВР (3.5%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPVR)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOPVR * months)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>СО (5%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSO)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSO * months)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>СН (6%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSN)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalSN * months)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>ВОСМС (2%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalVOSMS)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalVOSMS * months)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>ООСМС (3%)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOOSMS)}</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(totalOOSMS * months)}</td></tr>
+            </tbody></table>
           </div>
         );
       })()}
 
-      {/* ═══ ФНО 300.00 ═══ */}
-      {tab === "fno300" && (() => {
+      {tab === "300.00" && (() => {
         const ndsCollected = getNDSCollected();
         const ndsPaid = getNDSPaid();
         const ndsPayable = Math.max(0, ndsCollected - ndsPaid);
         const revenue = getRevenue();
         return (
           <div className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФОРМА 300.00 — ДЕКЛАРАЦИЯ ПО НДС</h2>
-            <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>{profile?.company_name} • Ставка НДС: {TAX.NDS * 100}%</p>
-            <table>
-              <thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#EC489920" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#EC489920" }}>Сумма, ₸</th></tr></thead>
-              <tbody>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>300.00.001 — Оборот по реализации (без НДС)</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(revenue)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>300.00.002 — НДС начисленный ({TAX.NDS * 100}%)</td><td className="p-3 text-[13px] r" style={{ color: "#EF4444", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(ndsCollected)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>300.00.013 — НДС относимый в зачёт</td><td className="p-3 text-[13px] r" style={{ color: "#10B981", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(ndsPaid)}</td></tr>
-                <tr style={{ background: "var(--bg)" }}><td className="p-3 text-[14px] font-bold">300.00.024 — НДС к уплате в бюджет</td><td className="p-3 text-[14px] r font-bold" style={{ color: "#EC4899" }}>{fmtMoney(ndsPayable)}</td></tr>
-              </tbody>
-            </table>
-            <p className="text-[10px] mt-3" style={{ color: "var(--t3)" }}>НДС {TAX.NDS * 100}% — НК РК 2026 (ЗРК 214-VIII). Порог: {fmtMoney(TAX_COMPUTED.NDS_THRESHOLD)} ₸.</p>
+            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФНО 300.00 — ДЕКЛАРАЦИЯ ПО НДС</h2>
+            <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>{profile?.company_name} • Ставка: {TAX.NDS * 100}%</p>
+            <table><thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#EC489920" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#EC489920" }}>Сумма, ₸</th></tr></thead>
+            <tbody>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>300.00.001 — Оборот по реализации (без НДС)</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(revenue)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>300.00.002 — НДС начисленный ({TAX.NDS * 100}%)</td><td className="p-3 text-[13px] r" style={{ color: "#EF4444", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(ndsCollected)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>300.00.013 — НДС относимый в зачёт</td><td className="p-3 text-[13px] r" style={{ color: "#10B981", borderBottom: "1px solid var(--brd)" }}>{fmtMoney(ndsPaid)}</td></tr>
+              <tr style={{ background: "var(--bg)" }}><td className="p-3 text-[14px] font-bold">300.00.024 — НДС к уплате</td><td className="p-3 text-[14px] r font-bold" style={{ color: "#EC4899" }}>{fmtMoney(ndsPayable)}</td></tr>
+            </tbody></table>
           </div>
         );
       })()}
 
-      {/* ═══ ФНО 100.00 ═══ */}
-      {tab === "fno100" && (() => {
+      {tab === "100.00" && (() => {
         const revenue = getRevenue();
         const expenses = Math.abs(getAccountBalance("7010")) + Math.abs(getAccountBalance("7110")) + Math.abs(getAccountBalance("7210"));
         const taxableIncome = Math.max(0, revenue - expenses);
         const kpn = Math.round(taxableIncome * TAX.KPN);
         return (
           <div className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФОРМА 100.00 — ДЕКЛАРАЦИЯ ПО КПН</h2>
+            <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>ФНО 100.00 — ДЕКЛАРАЦИЯ ПО КПН</h2>
             <p style={{ textAlign: "center", fontSize: 12, color: "var(--t3)", margin: "0 0 16px" }}>{profile?.company_name} • Ставка КПН: {TAX.KPN * 100}%</p>
-            <table>
-              <thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#8B5CF620" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#8B5CF620" }}>Сумма, ₸</th></tr></thead>
-              <tbody>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>100.00.001 — Совокупный годовой доход (СГД)</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(revenue)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>100.00.030 — Вычеты (расходы)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(expenses)}</td></tr>
-                <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>100.00.038 — Налогооблагаемый доход</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(taxableIncome)}</td></tr>
-                <tr style={{ background: "var(--bg)" }}><td className="p-3 text-[14px] font-bold">100.00.045 — КПН к уплате ({TAX.KPN * 100}%)</td><td className="p-3 text-[14px] r font-bold" style={{ color: "#8B5CF6" }}>{fmtMoney(kpn)}</td></tr>
-              </tbody>
-            </table>
-            <p className="text-[10px] mt-3" style={{ color: "var(--t3)" }}>КПН {TAX.KPN * 100}% — НК РК 2026. Дифференцированные: банки 25%, с/х 3%, соцсфера 5%.</p>
+            <table><thead><tr><th className="text-left p-3 text-[12px]" style={{ background: "#8B5CF620" }}>Показатель</th><th className="r p-3 text-[12px]" style={{ background: "#8B5CF620" }}>Сумма, ₸</th></tr></thead>
+            <tbody>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>100.00.001 — Совокупный годовой доход (СГД)</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(revenue)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>100.00.030 — Вычеты (расходы)</td><td className="p-3 text-[13px] r" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(expenses)}</td></tr>
+              <tr><td className="p-3 text-[13px]" style={{ borderBottom: "1px solid var(--brd)" }}>100.00.038 — Налогооблагаемый доход</td><td className="p-3 text-[13px] r font-bold" style={{ borderBottom: "1px solid var(--brd)" }}>{fmtMoney(taxableIncome)}</td></tr>
+              <tr style={{ background: "var(--bg)" }}><td className="p-3 text-[14px] font-bold">100.00.045 — КПН к уплате ({TAX.KPN * 100}%)</td><td className="p-3 text-[14px] r font-bold" style={{ color: "#8B5CF6" }}>{fmtMoney(kpn)}</td></tr>
+            </tbody></table>
           </div>
         );
       })()}
