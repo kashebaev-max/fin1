@@ -15,7 +15,7 @@ interface Insight {
 
 export default function AIPage() {
   const supabase = createClient();
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<{role: "ai" | "user"; text: string}[]>([
     { role: "ai" as const, text: "Сәлеметсіз бе! Я Жанара — ваш AI-ассистент. Я вижу все данные вашей компании и могу помочь с налогами, анализом финансов, напомнить о сроках. Задавайте любые вопросы!" }
   ]);
   const [input, setInput] = useState("");
