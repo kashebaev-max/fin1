@@ -332,7 +332,7 @@ export default function ProductionPage() {
       user_id: userId,
       output_number: outputForm.output_number,
       output_date: outputForm.output_date,
-      order_id: orderForm.order_id || order.id,
+      order_id: outputForm.order_id || order.id,
       spec_id: spec.id,
       product_id: order.product_id,
       product_name: order.product_name,
