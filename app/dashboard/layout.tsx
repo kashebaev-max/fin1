@@ -10,11 +10,13 @@ const ADMIN_EMAIL = "kashebaev@gmail.com";
 const MODULES = [
   { key: "dashboard", name: "Главная", icon: "⬡", path: "/dashboard", adminOnly: false },
   { key: "documents", name: "Документы", icon: "◈", path: "/dashboard/documents", adminOnly: false },
+  { key: "edo", name: "ЭДО / ЭСФ", icon: "📨", path: "/dashboard/edo", adminOnly: false },
   { key: "accounting", name: "Бухгалтерия", icon: "▦", path: "/dashboard/accounting", adminOnly: false },
   { key: "warehouse", name: "Склад", icon: "▣", path: "/dashboard/warehouse", adminOnly: false },
   { key: "assets", name: "Осн. средства", icon: "🏗", path: "/dashboard/assets", adminOnly: false },
   { key: "cashbox", name: "Касса", icon: "◉", path: "/dashboard/cashbox", adminOnly: false },
   { key: "bank", name: "Банк", icon: "◆", path: "/dashboard/bank", adminOnly: false },
+  { key: "bank-import", name: "Импорт выписки", icon: "📥", path: "/dashboard/bank-import", adminOnly: false },
   { key: "hr", name: "Кадры и ЗП", icon: "◎", path: "/dashboard/hr", adminOnly: false },
   { key: "calendar", name: "Календарь", icon: "📅", path: "/dashboard/calendar", adminOnly: false },
   { key: "check", name: "Проверка БИН", icon: "🔍", path: "/dashboard/check", adminOnly: false },
