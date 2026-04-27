@@ -35,6 +35,7 @@ const MODULES = [
   { key: "warehouse", name: "Склад", icon: "▣", path: "/dashboard/warehouse", adminOnly: false },
   { key: "transfers", name: "Перемещения", icon: "🔁", path: "/dashboard/transfers", adminOnly: false },
   { key: "inventory", name: "Инвентаризация", icon: "📋", path: "/dashboard/inventory", adminOnly: false },
+  { key: "batches", name: "Партионный учёт", icon: "📦", path: "/dashboard/batches", adminOnly: false },
   { key: "assets", name: "Осн. средства", icon: "🏗", path: "/dashboard/assets", adminOnly: false },
   { key: "cashbox", name: "Касса", icon: "◉", path: "/dashboard/cashbox", adminOnly: false },
   { key: "bank", name: "Банк", icon: "◆", path: "/dashboard/bank", adminOnly: false },
