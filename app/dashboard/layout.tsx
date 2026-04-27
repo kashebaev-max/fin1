@@ -47,6 +47,7 @@ const MODULES = [
   { key: "currency", name: "Валюты", icon: "💱", path: "/dashboard/currency", adminOnly: false },
   { key: "hr", name: "Кадры и ЗП", icon: "◎", path: "/dashboard/hr", adminOnly: false },
   { key: "timesheet", name: "Табель Т-13", icon: "🗓", path: "/dashboard/timesheet", adminOnly: false },
+  { key: "vacations", name: "Отпуска", icon: "🏖", path: "/dashboard/vacations", adminOnly: false },
   { key: "calendar", name: "Календарь", icon: "📅", path: "/dashboard/calendar", adminOnly: false },
   { key: "check", name: "Проверка БИН", icon: "🔍", path: "/dashboard/check", adminOnly: false },
   { key: "reports", name: "Отчёты ФНО", icon: "▤", path: "/dashboard/reports", adminOnly: false },
