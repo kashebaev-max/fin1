@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -49,6 +50,20 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+    <Link href="/dashboard/settings/modules" style={{ textDecoration: "none" }}>
+  <div className="rounded-xl p-5 cursor-pointer" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+    <div className="flex items-center gap-3">
+      <span style={{ fontSize: 28 }}>📦</span>
+      <div className="flex-1">
+        <div className="text-sm font-bold" style={{ color: "var(--t1)" }}>Управление модулями</div>
+        <div className="text-[11px]" style={{ color: "var(--t3)" }}>
+          Включите или отключите модули в сайдбаре. Готовые пресеты для разных типов бизнеса.
+        </div>
+      </div>
+      <span style={{ fontSize: 18, color: "var(--t3)" }}>→</span>
+    </div>
+  </div>
+</Link>
       {/* Company Profile */}
       <div className="rounded-xl p-6" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
         <div className="text-base font-bold mb-4">Реквизиты организации</div>
