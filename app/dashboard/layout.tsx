@@ -50,6 +50,7 @@ const MODULES = [
   { key: "vacations", name: "Отпуска", icon: "🏖", path: "/dashboard/vacations", adminOnly: false },
   { key: "hr-orders", name: "Кадровые приказы", icon: "📜", path: "/dashboard/hr-orders", adminOnly: false },
   { key: "deductions", name: "Удержания из ЗП", icon: "💸", path: "/dashboard/deductions", adminOnly: false },
+  { key: "scheduled-tasks", name: "Регламентные задания", icon: "⏱", path: "/dashboard/scheduled-tasks", adminOnly: false },
   { key: "calendar", name: "Календарь", icon: "📅", path: "/dashboard/calendar", adminOnly: false },
   { key: "check", name: "Проверка БИН", icon: "🔍", path: "/dashboard/check", adminOnly: false },
   { key: "reports", name: "Отчёты ФНО", icon: "▤", path: "/dashboard/reports", adminOnly: false },
