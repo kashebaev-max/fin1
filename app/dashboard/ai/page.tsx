@@ -1,268 +1,284 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase-browser";
-import { fmtMoney } from "@/lib/tax2026";
+import { collectBusinessContext, contextToText, BusinessContext } from "@/lib/ai-context";
 
-interface Insight {
-  type: "warning" | "info" | "success";
-  icon: string;
-  title: string;
-  detail: string;
-  action?: string;
-  href?: string;
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
 }
 
-export default function AIPage() {
+const QUICK_PROMPTS = [
+  { icon: "💰", text: "Как у меня с финансами сейчас?" },
+  { icon: "📊", text: "Что должен сдать в этом месяце?" },
+  { icon: "⚠️", text: "Какие у меня сейчас проблемы и риски?" },
+  { icon: "📈", text: "Как идут продажи?" },
+  { icon: "📦", text: "Что со складом и партиями?" },
+  { icon: "👥", text: "Расскажи про моих сотрудников и ЗП" },
+  { icon: "💡", text: "Что мне сделать прямо сейчас в первую очередь?" },
+  { icon: "📅", text: "Какие ближайшие дедлайны по налогам?" },
+];
+
+export default function AIChatPage() {
   const supabase = createClient();
-  const [messages, setMessages] = useState<{role: "ai" | "user"; text: string}[]>([
-    { role: "ai" as const, text: "Сәлеметсіз бе! Я Жанара — ваш AI-ассистент. Я вижу все данные вашей компании и могу помочь с налогами, анализом финансов, напомнить о сроках. Задавайте любые вопросы!" }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [insights, setInsights] = useState<Insight[]>([]);
-  const [insightsLoading, setInsightsLoading] = useState(true);
-  const chatRef = useRef<HTMLDivElement>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [userId, setUserId] = useState("");
+  const [sessionId] = useState(() => `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const [businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
+  const [contextStale, setContextStale] = useState(true);
+  const [showContextPreview, setShowContextPreview] = useState(false);
 
-  useEffect(() => { loadInsights(); }, []);
-  useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [messages, loading]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  async function loadInsights() {
+  useEffect(() => { init(); }, []);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  async function init() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setInsightsLoading(false); return; }
+    if (!user) return;
+    setUserId(user.id);
 
-    const now = new Date();
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-
-    const [docs, emps, prods, cashOps, bankOps, journal] = await Promise.all([
-      supabase.from("documents").select("*").eq("user_id", user.id),
-      supabase.from("employees").select("*").eq("user_id", user.id).eq("status", "active"),
-      supabase.from("products").select("*").eq("user_id", user.id),
-      supabase.from("cash_operations").select("*").eq("user_id", user.id),
-      supabase.from("bank_operations").select("*").eq("user_id", user.id),
-      supabase.from("journal_entries").select("*").eq("user_id", user.id),
-    ]);
-
-    const allDocs = docs.data || [];
-    const allProds = prods.data || [];
-    const journalList = journal.data || [];
-
-    const newInsights: Insight[] = [];
-
-    // Непроведённые документы
-    const draftDocs = allDocs.filter((d: any) => d.status === "draft");
-    if (draftDocs.length > 0) {
-      newInsights.push({
-        type: "warning", icon: "📝",
-        title: `${draftDocs.length} документов не проведены`,
-        detail: `Документы в статусе "Черновик" не попадают в бухгалтерию и склад. Проведите их.`,
-        action: "Открыть документы", href: "/dashboard/documents",
-      });
+    // Загружаем последние сообщения из истории (опционально, для непрерывности)
+    const { data } = await supabase
+      .from("ai_conversations")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (data && data.length > 0) {
+      const sorted = data.reverse().map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(m.created_at),
+      }));
+      setMessages(sorted);
+    } else {
+      // Приветствие
+      setMessages([{
+        role: "assistant",
+        content: "Здравствуйте! Я — Жанара, ваш AI-консультант по бухгалтерии и налогам РК. Я вижу состояние вашего бизнеса в реальном времени и помогу разобраться с любыми вопросами. Можете задать вопрос или выбрать одну из быстрых тем ниже.",
+        timestamp: new Date(),
+      }]);
     }
 
-    // Заканчивается на складе
-    const lowStock = allProds.filter((p: any) => Number(p.quantity) < Number(p.min_quantity) && Number(p.min_quantity) > 0);
-    if (lowStock.length > 0) {
-      newInsights.push({
-        type: "warning", icon: "📦",
-        title: `${lowStock.length} товаров заканчиваются`,
-        detail: `На складе ниже минимального остатка: ${lowStock.slice(0, 3).map((p: any) => p.name).join(", ")}${lowStock.length > 3 ? " и другие" : ""}. Пора закупать.`,
-        action: "Открыть склад", href: "/dashboard/warehouse",
-      });
-    }
-
-    // Дебиторка
-    const debit1210 = journalList.filter((e: any) => e.debit_account === "1210").reduce((a: number, e: any) => a + Number(e.amount), 0);
-    const credit1210 = journalList.filter((e: any) => e.credit_account === "1210").reduce((a: number, e: any) => a + Number(e.amount), 0);
-    const receivables = Math.max(0, debit1210 - credit1210);
-    if (receivables > 500000) {
-      newInsights.push({
-        type: "warning", icon: "💼",
-        title: `Дебиторка: ${fmtMoney(receivables)} ₸`,
-        detail: `Контрагенты должны вам крупную сумму. Напомните о задолженности — проведите акты сверки.`,
-        action: "Акт сверки", href: "/dashboard/accounting",
-      });
-    }
-
-    // НДС
-    const ndsCollected = allDocs.filter((d: any) => d.doc_date >= monthStart && Number(d.nds_sum) > 0 && d.status === "done")
-      .reduce((a: number, d: any) => a + Number(d.nds_sum), 0);
-    const ndsPaid = allDocs.filter((d: any) => d.doc_date >= monthStart && d.doc_type === "receipt")
-      .reduce((a: number, d: any) => a + Number(d.nds_sum), 0);
-    const ndsPayable = Math.max(0, ndsCollected - ndsPaid);
-    if (ndsPayable > 50000) {
-      newInsights.push({
-        type: "info", icon: "⚖",
-        title: `НДС к уплате: ${fmtMoney(ndsPayable)} ₸`,
-        detail: `По результатам месяца нужно будет уплатить НДС. Срок — до 25 числа следующего месяца. Готовьте средства.`,
-        action: "Отчёт ФНО 300", href: "/dashboard/reports",
-      });
-    }
-
-    // Сроки ФНО
-    const today = new Date();
-    const dayOfMonth = today.getDate();
-    const monthNum = today.getMonth() + 1;
-
-    if ([15, 25].includes(dayOfMonth) || (dayOfMonth >= 10 && dayOfMonth <= 14)) {
-      if (dayOfMonth <= 15 && [2, 5, 8, 11].includes(monthNum)) {
-        newInsights.push({
-          type: "warning", icon: "📅",
-          title: "Скоро срок сдачи ФНО 200 и 300",
-          detail: `До 15 числа нужно сдать декларации по ИПН/СН (ФНО 200) и НДС (ФНО 300) за квартал.`,
-          action: "Открыть отчёты", href: "/dashboard/reports",
-        });
-      }
-    }
-
-    // Если всё в порядке
-    if (newInsights.length === 0) {
-      newInsights.push({
-        type: "success", icon: "✅",
-        title: "Всё под контролем",
-        detail: "Срочных задач нет. Продолжайте работу. Я рядом, если понадобится совет.",
-      });
-    }
-
-    setInsights(newInsights);
-    setInsightsLoading(false);
+    // Сразу собираем контекст
+    refreshContext(user.id);
   }
 
-  async function send(msgText?: string) {
-    const userMsg = (msgText || input).trim();
-    if (!userMsg || loading) return;
-    setMessages(prev => [...prev, { role: "user", text: userMsg }]);
+  async function refreshContext(uid: string) {
+    setContextLoading(true);
+    try {
+      const ctx = await collectBusinessContext(supabase, uid);
+      setBusinessContext(ctx);
+      setContextStale(false);
+    } catch (err) {
+      console.error("Context collect error:", err);
+    } finally {
+      setContextLoading(false);
+    }
+  }
+
+  async function sendMessage(text?: string) {
+    const userText = (text || input).trim();
+    if (!userText || loading) return;
+
+    const userMsg: Message = { role: "user", content: userText, timestamp: new Date() };
+    setMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
+    // Если контекст устарел или не загружен — пересобираем
+    let ctx = businessContext;
+    if (!ctx || contextStale) {
+      ctx = await collectBusinessContext(supabase, userId);
+      setBusinessContext(ctx);
+      setContextStale(false);
+    }
+    const ctxText = contextToText(ctx);
+
+    // Сохраняем сообщение пользователя
+    await supabase.from("ai_conversations").insert({
+      user_id: userId,
+      session_id: sessionId,
+      role: "user",
+      content: userText,
+      business_context: ctx as any,
+      current_module: "ai",
+    });
+
     try {
-      const res = await fetch("/api/ai", {
+      const apiMessages = [...messages, userMsg].map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const res = await fetch("/.netlify/functions/ai-zhanara", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg }),
+        body: JSON.stringify({
+          mode: "chat",
+          messages: apiMessages,
+          contextText: ctxText,
+        }),
       });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`AI API error: ${errText}`);
+      }
+
       const data = await res.json();
-      setMessages(prev => [...prev, { role: "ai", text: data.reply || "Не удалось получить ответ." }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "ai", text: "Ошибка соединения. Попробуйте позже." }]);
+      const assistantText = data.reply || "Извините, не получила ответ. Попробуйте ещё раз.";
+      const assistantMsg: Message = { role: "assistant", content: assistantText, timestamp: new Date() };
+      setMessages(prev => [...prev, assistantMsg]);
+
+      // Сохраняем ответ
+      await supabase.from("ai_conversations").insert({
+        user_id: userId,
+        session_id: sessionId,
+        role: "assistant",
+        content: assistantText,
+        current_module: "ai",
+      });
+    } catch (err: any) {
+      const errorMsg: Message = {
+        role: "assistant",
+        content: `❌ Ошибка: ${err.message || err}. Проверьте, что в Netlify задана переменная ANTHROPIC_API_KEY.`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setLoading(false);
     }
   }
 
-  const quickQ = [
-    "Что у меня с деньгами?",
-    "Покажи непроведённые документы",
-    "Какая у меня дебиторка?",
-    "Когда сдавать ФНО 300?",
-    "Рассчитай зарплату 400 000 ₸",
-    "Что купить на склад?",
-  ];
-
-  const insightColors: Record<string, { bg: string; color: string }> = {
-    warning: { bg: "#F59E0B15", color: "#F59E0B" },
-    info: { bg: "#6366F115", color: "#6366F1" },
-    success: { bg: "#10B98115", color: "#10B981" },
-  };
+  async function clearHistory() {
+    if (!confirm("Очистить историю диалога? Контекст бизнеса сохранится.")) return;
+    await supabase.from("ai_conversations").delete().eq("user_id", userId);
+    setMessages([{
+      role: "assistant",
+      content: "История очищена. Чем могу помочь?",
+      timestamp: new Date(),
+    }]);
+  }
 
   return (
-    <div className="flex gap-4" style={{ height: "calc(100vh - 160px)" }}>
-      {/* Left: Insights panel */}
-      <aside className="w-80 flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
-        <div>
-          <div className="text-xs font-bold tracking-widest mb-1" style={{ color: "#A855F7" }}>✦ АНАЛИЗ ОТ ЖАНАРЫ</div>
-          <div className="text-[11px]" style={{ color: "var(--t3)" }}>Что важно знать прямо сейчас</div>
-        </div>
+    <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 140px)" }}>
 
-        {insightsLoading ? (
-          <div className="text-xs py-8 text-center" style={{ color: "var(--t3)" }}>Анализирую данные...</div>
-        ) : (
-          insights.map((ins, i) => (
-            <div key={i} className="rounded-xl p-4"
-              style={{ background: "var(--card)", border: "1px solid var(--brd)", borderLeft: `3px solid ${insightColors[ins.type].color}` }}>
-              <div className="flex items-start gap-2 mb-2">
-                <span className="text-base flex-shrink-0">{ins.icon}</span>
-                <div className="flex-1">
-                  <div className="text-xs font-bold mb-1" style={{ color: insightColors[ins.type].color }}>{ins.title}</div>
-                  <div className="text-[11px]" style={{ color: "var(--t2)", lineHeight: 1.5 }}>{ins.detail}</div>
-                </div>
+      {/* Контекст индикатор */}
+      <div className="rounded-xl p-3 flex items-center justify-between" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+        <div className="flex items-center gap-2 text-[11px]" style={{ color: "var(--t3)" }}>
+          <span style={{ fontSize: 16 }}>{contextLoading ? "🔄" : businessContext ? "🟢" : "🔴"}</span>
+          {contextLoading
+            ? "Собираю данные о вашем бизнесе..."
+            : businessContext
+              ? <>Жанара видит: касса <b>{businessContext.finance.cash.toLocaleString("ru-RU")} ₸</b> · банк <b>{businessContext.finance.bank.toLocaleString("ru-RU")} ₸</b> · выручка месяца <b>{businessContext.sales.revenueMTD.toLocaleString("ru-RU")} ₸</b> · {businessContext.hr.activeEmployees} сотрудников</>
+              : "Контекст не загружен"
+          }
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowContextPreview(!showContextPreview)}
+            className="text-[10px] cursor-pointer border-none bg-transparent"
+            style={{ color: "var(--accent)" }}>
+            {showContextPreview ? "Скрыть" : "Показать"} контекст
+          </button>
+          <button
+            onClick={() => userId && refreshContext(userId)}
+            disabled={contextLoading}
+            className="text-[10px] cursor-pointer border-none bg-transparent"
+            style={{ color: "var(--accent)" }}>
+            🔄 Обновить
+          </button>
+          <button
+            onClick={clearHistory}
+            className="text-[10px] cursor-pointer border-none bg-transparent"
+            style={{ color: "#EF4444" }}>
+            🗑 Очистить
+          </button>
+        </div>
+      </div>
+
+      {showContextPreview && businessContext && (
+        <div className="rounded-xl p-3" style={{ background: "var(--bg)", border: "1px solid var(--brd)", maxHeight: 200, overflow: "auto" }}>
+          <pre className="text-[10px] whitespace-pre-wrap" style={{ color: "var(--t2)", fontFamily: "monospace" }}>{contextToText(businessContext)}</pre>
+        </div>
+      )}
+
+      {/* Сообщения */}
+      <div className="flex-1 rounded-xl p-4 overflow-y-auto" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+        <div className="flex flex-col gap-3">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className="rounded-xl p-3"
+                style={{
+                  maxWidth: "80%",
+                  background: m.role === "user" ? "var(--accent)" : "var(--bg)",
+                  color: m.role === "user" ? "#fff" : "var(--t1)",
+                  border: m.role === "user" ? "none" : "1px solid var(--brd)",
+                }}>
+                {m.role === "assistant" && (
+                  <div className="flex items-center gap-1.5 mb-1.5 text-[10px]" style={{ color: "#A855F7", fontWeight: 700 }}>
+                    <span>✦</span>
+                    <span>ЖАНАРА</span>
+                    <span style={{ color: "var(--t3)", fontWeight: 400, marginLeft: 4 }}>{m.timestamp.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                )}
+                <div className="text-[12px]" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{m.content}</div>
               </div>
-              {ins.action && ins.href && (
-                <a href={ins.href} className="text-[11px] font-semibold no-underline block mt-2"
-                  style={{ color: insightColors[ins.type].color }}>
-                  {ins.action} →
-                </a>
-              )}
             </div>
-          ))
-        )}
-
-        <div className="rounded-xl p-4 mt-2" style={{ background: "linear-gradient(135deg, #6366F110, #A855F710)", border: "1px solid #A855F730" }}>
-          <div className="text-[10px] font-bold tracking-wider mb-1" style={{ color: "#A855F7" }}>💡 СОВЕТ</div>
-          <div className="text-[11px]" style={{ color: "var(--t2)", lineHeight: 1.5 }}>
-            Задавайте мне вопросы о вашем бизнесе. Я вижу документы, деньги, склад и могу дать конкретный совет — не общий.
-          </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="rounded-xl p-3" style={{ background: "var(--bg)", border: "1px solid var(--brd)" }}>
+                <div className="text-[11px]" style={{ color: "#A855F7" }}>✦ Жанара думает...</div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
-      </aside>
+      </div>
 
-      {/* Right: Chat */}
-      <div className="flex-1 flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-          {quickQ.map((q, i) => (
-            <button key={i} onClick={() => send(q)}
-              className="px-3 py-1.5 rounded-2xl text-[11px] font-medium cursor-pointer transition-all hover:opacity-80"
-              style={{ border: "1px solid var(--brd)", background: "transparent", color: "var(--t3)" }}>
-              {q}
+      {/* Быстрые подсказки */}
+      {messages.length <= 1 && (
+        <div className="grid grid-cols-4 gap-2">
+          {QUICK_PROMPTS.map((p, i) => (
+            <button
+              key={i}
+              onClick={() => sendMessage(p.text)}
+              disabled={loading}
+              className="rounded-lg p-2.5 text-left cursor-pointer transition-all border-none"
+              style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <span style={{ fontSize: 16, marginRight: 6 }}>{p.icon}</span>
+              <span className="text-[11px]">{p.text}</span>
             </button>
           ))}
         </div>
+      )}
 
-        <div className="flex-1 rounded-xl flex flex-col overflow-hidden" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-          <div ref={chatRef} className="flex-1 overflow-y-auto p-5 flex flex-col gap-3">
-            {messages.map((m, i) => (
-              <div key={i} className="flex" style={{ justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-                <div
-                  className="max-w-[80%] px-4 py-3 text-[13px] whitespace-pre-line"
-                  style={{
-                    borderRadius: m.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                    background: m.role === "user" ? "var(--accent)" : "var(--bg)",
-                    color: m.role === "user" ? "#fff" : "var(--t1)",
-                    border: m.role === "ai" ? "1px solid var(--brd)" : "none",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {m.role === "ai" && (
-                    <div className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: "#A855F7" }}>✦ AI ЖАНАРА</div>
-                  )}
-                  {m.text}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="self-start px-4 py-3 rounded-xl text-[13px]"
-                style={{ background: "var(--bg)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
-                Анализирую ваши данные...
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2 p-4" style={{ borderTop: "1px solid var(--brd)" }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && send()}
-              placeholder="Спросите о ваших финансах, документах, налогах..."
-              className="flex-1"
-            />
-            <button onClick={() => send()} disabled={loading}
-              className="px-5 py-2.5 rounded-xl text-white font-semibold text-sm border-none cursor-pointer disabled:opacity-50"
-              style={{ background: "var(--accent)" }}>
-              →
-            </button>
-          </div>
-        </div>
+      {/* Ввод */}
+      <div className="rounded-xl p-3 flex gap-2" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+          placeholder="Спросите Жанару... (Enter — отправить)"
+          disabled={loading}
+          style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--brd)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--t1)" }}
+        />
+        <button
+          onClick={() => sendMessage()}
+          disabled={loading || !input.trim()}
+          className="px-4 py-2 rounded-lg text-white text-xs font-semibold border-none cursor-pointer"
+          style={{ background: "var(--accent)", opacity: loading || !input.trim() ? 0.5 : 1 }}>
+          Отправить →
+        </button>
       </div>
     </div>
   );
