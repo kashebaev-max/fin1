@@ -22,6 +22,7 @@ const MODULES = [
   { key: "sales-analytics", name: "Анализ продаж", icon: "🎯", path: "/dashboard/sales-analytics", adminOnly: false },
   { key: "production", name: "Производство", icon: "🏭", path: "/dashboard/production", adminOnly: false },
   { key: "assembly", name: "Комплектация", icon: "🔧", path: "/dashboard/assembly", adminOnly: false },
+  { key: "recurring", name: "Регулярные платежи", icon: "🔄", path: "/dashboard/recurring", adminOnly: false },
   { key: "budgeting", name: "Бюджет", icon: "📊", path: "/dashboard/budgeting", adminOnly: false },
   { key: "management-reports", name: "Упр. отчёты", icon: "📈", path: "/dashboard/management-reports", adminOnly: false },
   { key: "documents", name: "Документы", icon: "◈", path: "/dashboard/documents", adminOnly: false },
