@@ -17,6 +17,7 @@ const MODULES = [
   { key: "returns", name: "Возвраты", icon: "↩", path: "/dashboard/returns", adminOnly: false },
   { key: "crm", name: "CRM", icon: "💼", path: "/dashboard/crm", adminOnly: false },
   { key: "pos", name: "Касса POS", icon: "🛒", path: "/dashboard/pos", adminOnly: false },
+  { key: "retail", name: "Розница", icon: "🏬", path: "/dashboard/retail", adminOnly: false },
   { key: "production", name: "Производство", icon: "🏭", path: "/dashboard/production", adminOnly: false },
   { key: "budgeting", name: "Бюджет", icon: "📊", path: "/dashboard/budgeting", adminOnly: false },
   { key: "management-reports", name: "Упр. отчёты", icon: "📈", path: "/dashboard/management-reports", adminOnly: false },
