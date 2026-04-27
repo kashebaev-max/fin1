@@ -28,6 +28,7 @@ const MODULES = [
   { key: "transport", name: "Транспорт", icon: "🚗", path: "/dashboard/transport", adminOnly: false },
   { key: "accounting", name: "Бухгалтерия", icon: "▦", path: "/dashboard/accounting", adminOnly: false },
   { key: "warehouse", name: "Склад", icon: "▣", path: "/dashboard/warehouse", adminOnly: false },
+  { key: "transfers", name: "Перемещения", icon: "🔁", path: "/dashboard/transfers", adminOnly: false },
   { key: "inventory", name: "Инвентаризация", icon: "📋", path: "/dashboard/inventory", adminOnly: false },
   { key: "assets", name: "Осн. средства", icon: "🏗", path: "/dashboard/assets", adminOnly: false },
   { key: "cashbox", name: "Касса", icon: "◉", path: "/dashboard/cashbox", adminOnly: false },
