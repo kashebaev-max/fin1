@@ -10,6 +10,7 @@ const ADMIN_EMAIL = "kashebaev@gmail.com";
 const MODULES = [
   { key: "dashboard", name: "Главная", icon: "⬡", path: "/dashboard", adminOnly: false },
   { key: "companies", name: "Организации", icon: "🏢", path: "/dashboard/companies", adminOnly: false },
+  { key: "counterparties", name: "Контрагенты", icon: "👥", path: "/dashboard/counterparties", adminOnly: false },
   { key: "nomenclature", name: "Номенклатура", icon: "📚", path: "/dashboard/nomenclature", adminOnly: false },
   { key: "contracts", name: "Договоры", icon: "📑", path: "/dashboard/contracts", adminOnly: false },
   { key: "orders", name: "Заказы", icon: "📋", path: "/dashboard/orders", adminOnly: false },
