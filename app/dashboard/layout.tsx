@@ -34,6 +34,7 @@ const MODULES = [
   { key: "accounting", name: "Бухгалтерия", icon: "▦", path: "/dashboard/accounting", adminOnly: false },
   { key: "turnover", name: "ОСВ", icon: "📒", path: "/dashboard/turnover", adminOnly: false },
   { key: "account-card", name: "Карточка счёта", icon: "📇", path: "/dashboard/account-card", adminOnly: false },
+  { key: "chess-board", name: "Шахматка", icon: "♟", path: "/dashboard/chess-board", adminOnly: false },
   { key: "warehouse", name: "Склад", icon: "▣", path: "/dashboard/warehouse", adminOnly: false },
   { key: "transfers", name: "Перемещения", icon: "🔁", path: "/dashboard/transfers", adminOnly: false },
   { key: "inventory", name: "Инвентаризация", icon: "📋", path: "/dashboard/inventory", adminOnly: false },
