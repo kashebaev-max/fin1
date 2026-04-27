@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { fmtMoney, TAX, TAX_COMPUTED, calcSalary } from "@/lib/tax2026";
 import Link from "next/link";
+import AIInsightsPanel from "@/components/AIInsightsPanel";
 
 export default function DashboardPage() {
   const supabase = createClient();
@@ -149,6 +150,7 @@ export default function DashboardPage() {
           subtitle={`За ${new Date().toLocaleDateString("ru-RU", { month: "long" })}`}
           color="#EC4899" icon="⚖" />
       </div>
+      <AIInsightsPanel />
 
       {/* Revenue chart + Month summary */}
       <div className="grid grid-cols-3 gap-4">
