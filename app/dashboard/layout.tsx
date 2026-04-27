@@ -22,6 +22,7 @@ const MODULES = [
   { key: "workflow", name: "Документооборот", icon: "🛤", path: "/dashboard/workflow", adminOnly: false },
   { key: "edo", name: "ЭДО / ЭСФ", icon: "📨", path: "/dashboard/edo", adminOnly: false },
   { key: "industry", name: "Отрасли", icon: "🏥", path: "/dashboard/industry", adminOnly: false },
+  { key: "transport", name: "Транспорт", icon: "🚗", path: "/dashboard/transport", adminOnly: false },
   { key: "accounting", name: "Бухгалтерия", icon: "▦", path: "/dashboard/accounting", adminOnly: false },
   { key: "warehouse", name: "Склад", icon: "▣", path: "/dashboard/warehouse", adminOnly: false },
   { key: "assets", name: "Осн. средства", icon: "🏗", path: "/dashboard/assets", adminOnly: false },
