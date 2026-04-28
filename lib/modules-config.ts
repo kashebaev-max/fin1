@@ -169,6 +169,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
       { key: "ai", name: "AI Жанара", icon: "✦", path: "/dashboard/ai", description: "AI-ассистент по налогам и учёту" },
       { key: "notifications", name: "Уведомления", icon: "🔔", path: "/dashboard/notifications", description: "Уведомления и напоминания от Жанары" },
       { key: "ai-actions", name: "Журнал действий ИИ", icon: "🤖", path: "/dashboard/ai-actions", description: "Аудит всех действий, выполненных Жанарой" },
+      { key: "document-scanner", name: "Сканирование документов", icon: "📄", path: "/dashboard/document-scanner", description: "Загрузка PDF/фото → AI распознаёт и проводит" },
       { key: "scheduled-tasks", name: "Регламентные задания", icon: "⏱", path: "/dashboard/scheduled-tasks", description: "Автоматизация: амортизация, проверки и т.д." },
     ],
   },
