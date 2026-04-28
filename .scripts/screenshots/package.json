@@ -1,0 +1,14 @@
+{
+  "name": "finstat-screenshot-generator",
+  "version": "1.0.0",
+  "description": "Автоматическая генерация скриншотов для справочного центра Finstat.kz",
+  "main": "generate-screenshots.js",
+  "scripts": {
+    "start": "node generate-screenshots.js",
+    "headless": "HEADLESS=true node generate-screenshots.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.45.0"
+  }
+}
