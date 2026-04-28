@@ -1,11 +1,11 @@
-// AI-помощник Жанара со СТРИМИНГОМ через Server-Sent Events (SSE).
-// Решает проблему таймаута: Claude отвечает по кусочкам, Netlify не падает.
+// AI-помощник Жанара с tool_use API.
+// 11 инструментов (Pack 62: +3 новых для склада)
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-5";
 
 // ═══════════════════════════════════════════
-// ОПИСАНИЯ ИНСТРУМЕНТОВ
+// 11 ИНСТРУМЕНТОВ
 // ═══════════════════════════════════════════
 
 const TOOLS = [
@@ -16,7 +16,7 @@ const TOOLS = [
       type: "object",
       properties: {
         name: { type: "string", description: "Наименование" },
-        bin: { type: "string", description: "БИН/ИИН (12 цифр)" },
+        bin: { type: "string", description: "БИН/ИИН" },
         counterparty_type: { type: "string", enum: ["client", "supplier", "both"] },
         address: { type: "string" },
         phone: { type: "string" },
@@ -48,7 +48,7 @@ const TOOLS = [
   },
   {
     name: "create_employee",
-    description: "Принять сотрудника на работу.",
+    description: "Принять сотрудника.",
     input_schema: {
       type: "object",
       properties: {
@@ -115,7 +115,7 @@ const TOOLS = [
   },
   {
     name: "generate_document",
-    description: "Создать документ для контрагента.",
+    description: "Создать документ (счёт, акт, договор, накладная).",
     input_schema: {
       type: "object",
       properties: {
@@ -143,41 +143,105 @@ const TOOLS = [
       },
       required: ["payment_type", "amount", "counterparty_name"]
     }
+  },
+  // ═══ НОВОЕ В Pack 62 ═══
+  {
+    name: "create_warehouse",
+    description: "Создать новый склад. Типы: main (основной), transit (транзитный), production (производственный), returns (возвратный), consignment (комиссионный).",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Наименование склада" },
+        code: { type: "string", description: "Код склада" },
+        warehouse_type: { type: "string", enum: ["main", "transit", "production", "returns", "consignment"] },
+        address: { type: "string", description: "Адрес" },
+        responsible_name: { type: "string", description: "ФИО ответственного" },
+        responsible_iin: { type: "string", description: "ИИН ответственного" },
+        is_main: { type: "boolean", description: "Главный склад" }
+      },
+      required: ["name"]
+    }
+  },
+  {
+    name: "create_warehouse_transfer",
+    description: "Создать перемещение товара между складами. Автоматически уменьшает остаток на складе-источнике и увеличивает на получателе. Использует для конкретного товара (один товар на одно перемещение).",
+    input_schema: {
+      type: "object",
+      properties: {
+        from_warehouse_name: { type: "string", description: "Склад-источник (откуда)" },
+        to_warehouse_name: { type: "string", description: "Склад-получатель (куда)" },
+        transfer_date: { type: "string", description: "Дата перемещения" },
+        product_name: { type: "string", description: "Наименование товара" },
+        quantity: { type: "number", description: "Количество" },
+        notes: { type: "string", description: "Примечание" }
+      },
+      required: ["from_warehouse_name", "to_warehouse_name", "product_name", "quantity"]
+    }
+  },
+  {
+    name: "create_inventory_act",
+    description: "Создать акт инвентаризации для склада. Автоматически загружает все товары из номенклатуры с текущими остатками для проверки. После создания пользователь должен зайти в /dashboard/inventory и внести фактические количества.",
+    input_schema: {
+      type: "object",
+      properties: {
+        warehouse_name: { type: "string", description: "Наименование склада" },
+        act_date: { type: "string", description: "Дата инвентаризации" },
+        responsible_name: { type: "string", description: "ФИО ответственного" },
+        notes: { type: "string", description: "Примечание" }
+      },
+      required: ["warehouse_name"]
+    }
   }
 ];
 
-const SYSTEM_PROMPT = "Ты — Жанара, AI-помощник Finstat.kz.\n\n" +
-"🔴 КРИТИЧНО: НИКОГДА НЕ ВРИ. Если есть инструмент — вызови tool_use. Если нет — честно скажи 'не могу'.\n" +
-"НИКОГДА не пиши '✅ Создано' без вызова tool_use.\n\n" +
-"Инструменты: create_counterparty, create_nomenclature, create_employee, create_journal_entry, create_order, create_fixed_asset, generate_document, record_payment.\n\n" +
+// ═══════════════════════════════════════════
+// СИСТЕМНЫЙ ПРОМПТ
+// ═══════════════════════════════════════════
+
+const SYSTEM_PROMPT = "Ты — Жанара, AI-помощник Finstat.kz по бухгалтерии и налогам РК.\n\n" +
+"🔴 КРИТИЧНО: НИКОГДА НЕ ВРИ ЧТО ВЫПОЛНИЛ ДЕЙСТВИЕ.\n" +
+"- Если есть инструмент → вызови tool_use\n" +
+"- Если нет → честно скажи 'не могу, сделайте вручную'\n" +
+"- НИКОГДА не пиши '✅ Создано' без вызова tool_use — это ЛОЖЬ\n\n" +
+"ИНСТРУМЕНТЫ (11 шт):\n" +
+"- create_counterparty — контрагенты\n" +
+"- create_nomenclature — товары/услуги\n" +
+"- create_employee — сотрудники\n" +
+"- create_journal_entry — проводки\n" +
+"- create_order — заказы\n" +
+"- create_fixed_asset — основные средства\n" +
+"- generate_document — документы\n" +
+"- record_payment — платежи\n" +
+"- create_warehouse — склады (Pack 62)\n" +
+"- create_warehouse_transfer — перемещения между складами (Pack 62)\n" +
+"- create_inventory_act — инвентаризация склада (Pack 62)\n\n" +
 "НК РК 2026: НДС 16%, КПН 20%, ИПН 10% (вычет 14 МРП), ОПВ 10%, СН 6%, МРП 4325₸.\n" +
-"Счета: 1010 касса, 1030 банк, 6010 выручка, 7010 себестоимость, 1210 деб., 3310 кред.\n\n" +
+"Счета: 1010 касса, 1030 банк, 6010 выручка, 7010 себестоимость, 1210 деб., 3310 кред., 1330 запасы.\n" +
+"Типы складов: main, transit, production, returns, consignment.\n\n" +
 "Отвечай на русском, кратко.";
 
 // ═══════════════════════════════════════════
-// HANDLER (используем Netlify Streaming API)
+// HANDLER
 // ═══════════════════════════════════════════
 
-// Netlify Functions поддерживают streaming через ReadableStream
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "POST, OPTIONS"
+  };
+}
+
 exports.handler = async function(event) {
-  // CORS
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      },
-      body: ""
-    };
+    return { statusCode: 200, headers: corsHeaders(), body: "" };
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: corsHeaders(),
       body: JSON.stringify({ error: "ANTHROPIC_API_KEY не задан" })
     };
   }
@@ -186,11 +250,7 @@ exports.handler = async function(event) {
   try {
     body = JSON.parse(event.body || "{}");
   } catch (e) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: "Invalid JSON" })
-    };
+    return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid JSON" }) };
   }
 
   const messages = (body.messages || []).slice(-10);
@@ -202,10 +262,6 @@ exports.handler = async function(event) {
     finalSystem += "\n\n📊 КОНТЕКСТ:\n" + contextText;
   }
 
-  // Запрос к Claude (БЕЗ stream, ждём полный ответ)
-  // Стриминг тут не нужен — мы возвращаем JSON клиенту, а не SSE
-  // Цель — просто избежать Netlify-таймаута
-  
   try {
     const requestBody = {
       model: MODEL,
@@ -218,7 +274,6 @@ exports.handler = async function(event) {
       requestBody.tools = TOOLS;
     }
 
-    // Запрос с увеличенным таймаутом 25 секунд (на Pro plan можно)
     const controller = new AbortController();
     const timeoutId = setTimeout(function() { controller.abort(); }, 24000);
 
@@ -241,11 +296,11 @@ exports.handler = async function(event) {
       try {
         const parsed = JSON.parse(errText);
         if (parsed.error && parsed.error.message) errMessage = parsed.error.message;
-      } catch (e) { /* keep raw */ }
+      } catch (e) {}
 
       return {
         statusCode: claudeRes.status,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: { ...corsHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ error: "Claude API: " + errMessage })
       };
     }
@@ -257,10 +312,7 @@ exports.handler = async function(event) {
 
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: { ...corsHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
         reply: textBlocks.join("\n\n"),
         tool_uses: toolUses.map(function(t) {
@@ -274,14 +326,12 @@ exports.handler = async function(event) {
     let userMessage = errMessage;
 
     if (err && err.name === "AbortError") {
-      userMessage = "⏱ Запрос превысил 24 секунды. Попробуйте более короткий вопрос или нажмите ещё раз.";
-    } else if (errMessage.indexOf("fetch") !== -1) {
-      userMessage = "Ошибка сети при обращении к Claude API";
+      userMessage = "⏱ Превышен таймаут (24 сек). Попробуйте более короткий запрос.";
     }
 
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: { ...corsHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ error: userMessage })
     };
   }
