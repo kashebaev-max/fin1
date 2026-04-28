@@ -142,6 +142,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
     items: [
       { key: "documents", name: "Документы", icon: "◈", path: "/dashboard/documents", description: "Шаблоны, договоры, акты" },
       { key: "workflow", name: "Документооборот", icon: "🛤", path: "/dashboard/workflow", description: "Маршруты согласования" },
+      { key: "exports", name: "Экспорт отчётов", icon: "📤", path: "/dashboard/exports", description: "Скачивание отчётов в Excel и PDF" },
     ],
   },
   {
