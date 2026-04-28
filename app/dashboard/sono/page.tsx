@@ -8,6 +8,7 @@ import { calculate910, validate910, generate910XML, F910_INFO, type F910Data } f
 import { calculate200, validate200, generate200XML, F200_INFO, type F200Data } from "@/lib/fno/form-200";
 import { calculate300, validate300, generate300XML, F300_INFO, type F300Data } from "@/lib/fno/form-300";
 import { calculate100, validate100, generate100XML, F100_INFO, type F100Data } from "@/lib/fno/form-100";
+import { calculate700, validate700, generate700XML, F700_INFO, VEHICLE_TYPES_LIST, LAND_CATEGORIES_LIST, type F700Data } from "@/lib/fno/form-700";
 
 interface FNODeclaration {
   id: string;
@@ -41,6 +42,7 @@ const FORMS = [
   { code: "200.00", info: F200_INFO },
   { code: "300.00", info: F300_INFO },
   { code: "100.00", info: F100_INFO },
+  { code: "700.00", info: F700_INFO },
 ];
 
 const STATUS_COLORS: Record<string, { c: string; l: string }> = {
@@ -76,6 +78,9 @@ export default function SonoPage() {
 
   const [showRegisters, setShowRegisters] = useState(false);
   const [showDepGroups, setShowDepGroups] = useState(false);
+  const [showProperty, setShowProperty] = useState(true);
+  const [showVehicles, setShowVehicles] = useState(true);
+  const [showLand, setShowLand] = useState(true);
 
   const [msg, setMsg] = useState("");
 
@@ -159,6 +164,10 @@ export default function SonoPage() {
         data = await calculate100(supabase, userId, year);
         val = validate100(data);
         xml = generate100XML(data);
+      } else if (selectedForm === "700.00") {
+        data = await calculate700(supabase, userId, year);
+        val = validate700(data);
+        xml = generate700XML(data);
       } else {
         setMsg(`❌ Форма ${selectedForm} ещё не реализована`);
         setCalculating(false);
@@ -250,14 +259,16 @@ ${d.is_to_pay ? `НДС к УПЛАТЕ: ${d.final_amount.toLocaleString("ru-RU"
 Вычеты: ${d.total_deductions.toLocaleString("ru-RU")} ₸
 Налогооблагаемый доход: ${d.taxable_income.toLocaleString("ru-RU")} ₸
 КПН (20%): ${d.cit_amount.toLocaleString("ru-RU")} ₸
-${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸` : `К возврату: ${d.cit_to_refund.toLocaleString("ru-RU")} ₸`}
-Структура вычетов:
-- Себестоимость: ${d.deduction_cogs.toLocaleString("ru-RU")} ₸
-- Адм. расходы: ${d.deduction_admin.toLocaleString("ru-RU")} ₸
-- ЗП: ${d.deduction_payroll.toLocaleString("ru-RU")} ₸
-- Соц. налоги: ${d.deduction_social.toLocaleString("ru-RU")} ₸
-- Амортизация: ${d.deduction_depreciation.toLocaleString("ru-RU")} ₸
-- Прочие: ${d.deduction_other.toLocaleString("ru-RU")} ₸`;
+${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸` : `К возврату: ${d.cit_to_refund.toLocaleString("ru-RU")} ₸`}`;
+    } else if (selectedForm === "700.00") {
+      const d = calculatedData as F700Data;
+      ctxText += `\nОбъекты налогообложения:
+- Имущество: ${d.property_items.length} объектов, налог ${d.property_tax_total.toLocaleString("ru-RU")} ₸
+- Транспорт: ${d.vehicle_items.length} ТС, налог ${d.vehicle_tax_total.toLocaleString("ru-RU")} ₸
+- Земля: ${d.land_items.length} участков (${d.land_total_area_ha.toFixed(2)} га), налог ${d.land_tax_total.toLocaleString("ru-RU")} ₸
+ИТОГО налог: ${d.total_tax.toLocaleString("ru-RU")} ₸
+Авансовые платежи: ${d.advance_payments_paid.toLocaleString("ru-RU")} ₸
+${d.is_to_pay ? `К доплате: ${d.to_pay.toLocaleString("ru-RU")} ₸` : `К возврату: ${d.to_refund.toLocaleString("ru-RU")} ₸`}`;
     }
 
     if (validation?.warnings.length) {
@@ -297,7 +308,7 @@ ${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸`
   if (loading) return <div className="text-center py-8 text-sm" style={{ color: "var(--t3)" }}>Загрузка...</div>;
 
   const upcomingDeadlines = calculateNextDeadlines();
-  const isAnnualForm = selectedForm === "100.00";
+  const isAnnualForm = ["100.00", "700.00"].includes(selectedForm);
 
   return (
     <div className="flex flex-col gap-5">
@@ -328,7 +339,6 @@ ${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸`
         ))}
       </div>
 
-      {/* ═══ КАЛЕНДАРЬ ═══ */}
       {tab === "calendar" && (
         <>
           <div className="text-sm font-bold">📅 Ближайшие сроки сдачи</div>
@@ -365,7 +375,6 @@ ${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸`
         </>
       )}
 
-      {/* ═══ СОЗДАНИЕ ═══ */}
       {tab === "create" && (
         <>
           <div className="rounded-xl p-4" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
@@ -498,208 +507,266 @@ ${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸`
                 {selectedForm === "300.00" && (() => {
                   const d = calculatedData as F300Data;
                   return (
-                    <>
-                      <div className="text-[12px] font-bold mb-2">📤 Раздел 1: Реализация</div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Реализация 16%</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_16_amount)}</div>
-                          <div className="text-[9px]" style={{ color: "#10B981" }}>НДС: {fmtMoney(d.sales_16_vat)}</div>
-                        </div>
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Реализация 12%</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_12_amount)}</div>
-                          <div className="text-[9px]" style={{ color: "#10B981" }}>НДС: {fmtMoney(d.sales_12_vat)}</div>
-                        </div>
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Экспорт (0%)</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_0_amount)}</div>
-                        </div>
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Освобождённые</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_exempt_amount)}</div>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="rounded-lg p-3" style={{ background: "#10B98115" }}>
+                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>НДС начисленный</div>
+                        <div className="text-base font-bold" style={{ color: "#10B981" }}>{fmtMoney(d.total_output_vat)} ₸</div>
                       </div>
-
-                      <div className="text-[12px] font-bold mb-2">📥 Раздел 2: Приобретения</div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>С НДС</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.purchases_with_vat_amount)}</div>
-                          <div className="text-[9px]" style={{ color: "#3B82F6" }}>НДС: {fmtMoney(d.purchases_input_vat)}</div>
-                        </div>
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Без НДС</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.purchases_no_vat_amount)}</div>
-                        </div>
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Импорт</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.imports_amount)}</div>
-                        </div>
-                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Освобождённые</div>
-                          <div className="text-[12px] font-bold">{fmtMoney(d.purchases_exempt_amount)}</div>
-                        </div>
+                      <div className="rounded-lg p-3" style={{ background: "#3B82F615" }}>
+                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>НДС к зачёту</div>
+                        <div className="text-base font-bold" style={{ color: "#3B82F6" }}>{fmtMoney(d.total_input_vat)} ₸</div>
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <div className="rounded-lg p-3" style={{ background: "#10B98115" }}>
-                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>НДС начисленный</div>
-                          <div className="text-base font-bold" style={{ color: "#10B981" }}>{fmtMoney(d.total_output_vat)} ₸</div>
-                        </div>
-                        <div className="rounded-lg p-3" style={{ background: "#3B82F615" }}>
-                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>НДС к зачёту</div>
-                          <div className="text-base font-bold" style={{ color: "#3B82F6" }}>{fmtMoney(d.total_input_vat)} ₸</div>
-                        </div>
-                        <div className="rounded-lg p-3" style={{ background: d.is_to_pay ? "#EF444415" : "#10B98115" }}>
-                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.is_to_pay ? "К УПЛАТЕ" : "К ВОЗМЕЩЕНИЮ"}</div>
-                          <div className="text-lg font-bold" style={{ color: d.is_to_pay ? "#EF4444" : "#10B981" }}>{fmtMoney(d.final_amount)} ₸</div>
-                        </div>
+                      <div className="rounded-lg p-3" style={{ background: d.is_to_pay ? "#EF444415" : "#10B98115" }}>
+                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.is_to_pay ? "К УПЛАТЕ" : "К ВОЗМЕЩЕНИЮ"}</div>
+                        <div className="text-lg font-bold" style={{ color: d.is_to_pay ? "#EF4444" : "#10B981" }}>{fmtMoney(d.final_amount)} ₸</div>
                       </div>
-                    </>
+                    </div>
                   );
                 })()}
 
-                {/* ═══ ФОРМА 100.00 — КПН ═══ */}
                 {selectedForm === "100.00" && (() => {
                   const d = calculatedData as F100Data;
                   return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="rounded-lg p-3" style={{ background: "#10B98115" }}>
+                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>СГД</div>
+                        <div className="text-base font-bold" style={{ color: "#10B981" }}>{fmtMoney(d.total_annual_income)} ₸</div>
+                      </div>
+                      <div className="rounded-lg p-3" style={{ background: "#3B82F615" }}>
+                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>Вычеты</div>
+                        <div className="text-base font-bold" style={{ color: "#3B82F6" }}>{fmtMoney(d.total_deductions)} ₸</div>
+                      </div>
+                      <div className="rounded-lg p-3" style={{ background: "#A855F715" }}>
+                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>КПН ({d.tax_rate}%)</div>
+                        <div className="text-base font-bold" style={{ color: "#A855F7" }}>{fmtMoney(d.cit_amount)} ₸</div>
+                      </div>
+                      <div className="rounded-lg p-3" style={{ background: d.is_to_pay ? "#EF444415" : "#10B98115" }}>
+                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.is_to_pay ? "К ДОПЛАТЕ" : "К ВОЗВРАТУ"}</div>
+                        <div className="text-lg font-bold" style={{ color: d.is_to_pay ? "#EF4444" : "#10B981" }}>{fmtMoney(d.is_to_pay ? d.cit_to_pay : d.cit_to_refund)} ₸</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ═══ ФОРМА 700.00 ═══ */}
+                {selectedForm === "700.00" && (() => {
+                  const d = calculatedData as F700Data;
+                  return (
                     <>
-                      {/* СГД */}
-                      <div className="text-[12px] font-bold mb-2 flex items-center gap-1.5">
-                        <span style={{ color: "#10B981" }}>📈</span> Раздел 1: Совокупный годовой доход (СГД)
-                      </div>
-                      <div className="rounded-lg p-3 mb-3" style={{ background: "var(--bg)" }}>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-[11px]">
-                          <div><span style={{ color: "var(--t3)" }}>Реализация:</span> <b>{fmtMoney(d.income_from_sales)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Прирост стоимости:</span> <b>{fmtMoney(d.income_capital_gains)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Списание обязательств:</span> <b>{fmtMoney(d.income_writeoff)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Сомнительные обяз.:</span> <b>{fmtMoney(d.income_doubtful)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Безвозмездное имущ.:</span> <b>{fmtMoney(d.income_free)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Дивиденды и др.:</span> <b>{fmtMoney(d.income_dividends + d.income_interest + d.income_other)} ₸</b></div>
+                      {/* СВОДКА */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                        <div className="rounded-lg p-3" style={{ background: "#3B82F615", borderLeft: "3px solid #3B82F6" }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>🏢 Имущество (1.5%)</div>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.property_items.length} объект(ов)</div>
+                          <div className="text-base font-bold mt-1" style={{ color: "#3B82F6" }}>{fmtMoney(d.property_tax_total)} ₸</div>
                         </div>
-                        <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--brd)" }}>
-                          <div className="flex justify-between items-center">
-                            <span className="text-[12px] font-bold">ИТОГО СГД:</span>
-                            <span className="text-[14px] font-bold" style={{ color: "#10B981" }}>{fmtMoney(d.total_annual_income)} ₸</span>
-                          </div>
+                        <div className="rounded-lg p-3" style={{ background: "#A855F715", borderLeft: "3px solid #A855F7" }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>🚗 Транспорт</div>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.vehicle_items.length} ТС</div>
+                          <div className="text-base font-bold mt-1" style={{ color: "#A855F7" }}>{fmtMoney(d.vehicle_tax_total)} ₸</div>
+                        </div>
+                        <div className="rounded-lg p-3" style={{ background: "#10B98115", borderLeft: "3px solid #10B981" }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>🌾 Земля</div>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.land_items.length} участ. ({d.land_total_area_ha.toFixed(2)} га)</div>
+                          <div className="text-base font-bold mt-1" style={{ color: "#10B981" }}>{fmtMoney(d.land_tax_total)} ₸</div>
                         </div>
                       </div>
 
-                      {/* ВЫЧЕТЫ */}
-                      <div className="text-[12px] font-bold mb-2 flex items-center gap-1.5">
-                        <span style={{ color: "#3B82F6" }}>📉</span> Раздел 2: Вычеты
-                      </div>
-                      <div className="rounded-lg p-3 mb-3" style={{ background: "var(--bg)" }}>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-[11px]">
-                          <div><span style={{ color: "var(--t3)" }}>Себестоимость:</span> <b>{fmtMoney(d.deduction_cogs)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Расходы по реализации:</span> <b>{fmtMoney(d.deduction_selling)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Адм. расходы:</span> <b>{fmtMoney(d.deduction_admin)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Финансовые:</span> <b>{fmtMoney(d.deduction_financial)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Расходы на ЗП:</span> <b>{fmtMoney(d.deduction_payroll)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Соц. налоги:</span> <b>{fmtMoney(d.deduction_social)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Амортизация:</span> <b>{fmtMoney(d.deduction_depreciation)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>% по займам:</span> <b>{fmtMoney(d.deduction_interest_expense)} ₸</b></div>
-                          <div><span style={{ color: "var(--t3)" }}>Прочие:</span> <b>{fmtMoney(d.deduction_other)} ₸</b></div>
-                        </div>
-                        <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--brd)" }}>
-                          <div className="flex justify-between items-center">
-                            <span className="text-[12px] font-bold">ИТОГО ВЫЧЕТЫ:</span>
-                            <span className="text-[14px] font-bold" style={{ color: "#3B82F6" }}>{fmtMoney(d.total_deductions)} ₸</span>
+                      {/* ═══ ИМУЩЕСТВО ═══ */}
+                      {d.property_items.length > 0 && (
+                        <div className="rounded-lg p-3 mb-3" style={{ background: "var(--bg)", borderLeft: "3px solid #3B82F6" }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-[12px] font-bold flex items-center gap-1.5">
+                              <span>🏢</span> Налог на имущество
+                              <span className="text-[10px] font-normal" style={{ color: "var(--t3)" }}>· 1.5% от среднегодовой остаточной стоимости</span>
+                            </div>
+                            <button onClick={() => setShowProperty(!showProperty)} className="cursor-pointer rounded-lg border-none text-[10px]" style={{ padding: "3px 8px", background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
+                              {showProperty ? "Скрыть" : "Показать"}
+                            </button>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* РАСЧЁТ КПН */}
-                      <div className="text-[12px] font-bold mb-2 flex items-center gap-1.5">
-                        <span style={{ color: "#A855F7" }}>💰</span> Раздел 3: Расчёт КПН
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        <div className="rounded-lg p-3" style={{ background: "var(--bg)" }}>
-                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>Налогооблагаемый доход</div>
-                          <div className="text-base font-bold">{fmtMoney(d.taxable_income)} ₸</div>
-                          <div className="text-[10px] mt-1" style={{ color: "var(--t3)" }}>СГД − Вычеты</div>
+                          {showProperty && (
+                            <div style={{ overflowX: "auto" }}>
+                              <table className="w-full text-[10px]">
+                                <thead>
+                                  <tr style={{ background: "var(--card)" }}>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Объект</th>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Кадастр</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Перв. стоимость</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>На начало</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>На конец</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Среднегод.</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Налог 1.5%</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {d.property_items.map(p => (
+                                    <tr key={p.asset_id} style={{ borderBottom: "1px solid var(--brd)" }}>
+                                      <td style={{ padding: 4 }}><b>{p.name}</b></td>
+                                      <td style={{ padding: 4, fontFamily: "monospace", fontSize: 9 }}>{p.cadastral_number || "—"}</td>
+                                      <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(p.initial_cost)}</td>
+                                      <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(p.residual_value_start)}</td>
+                                      <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(p.residual_value_end)}</td>
+                                      <td style={{ padding: 4, textAlign: "right", fontWeight: 600 }}>{fmtMoney(p.average_value)}</td>
+                                      <td style={{ padding: 4, textAlign: "right", fontWeight: 600, color: "#3B82F6" }}>{fmtMoney(p.tax_amount)}</td>
+                                    </tr>
+                                  ))}
+                                  <tr style={{ background: "var(--card)", fontWeight: "bold" }}>
+                                    <td colSpan={5} style={{ padding: 4, textAlign: "right" }}>ИТОГО:</td>
+                                    <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(d.property_total_average_value)}</td>
+                                    <td style={{ padding: 4, textAlign: "right", color: "#3B82F6" }}>{fmtMoney(d.property_tax_total)}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
-                        <div className="rounded-lg p-3" style={{ background: "var(--bg)" }}>
-                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>Перенос убытков</div>
-                          <div className="text-base font-bold">{fmtMoney(d.loss_carryover)} ₸</div>
+                      )}
+
+                      {/* ═══ ТРАНСПОРТ ═══ */}
+                      {d.vehicle_items.length > 0 && (
+                        <div className="rounded-lg p-3 mb-3" style={{ background: "var(--bg)", borderLeft: "3px solid #A855F7" }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-[12px] font-bold flex items-center gap-1.5">
+                              <span>🚗</span> Налог на транспорт
+                              <span className="text-[10px] font-normal" style={{ color: "var(--t3)" }}>· МРП × ставка × возрастной коэф.</span>
+                            </div>
+                            <button onClick={() => setShowVehicles(!showVehicles)} className="cursor-pointer rounded-lg border-none text-[10px]" style={{ padding: "3px 8px", background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
+                              {showVehicles ? "Скрыть" : "Показать"}
+                            </button>
+                          </div>
+
+                          {showVehicles && (
+                            <div style={{ overflowX: "auto" }}>
+                              <table className="w-full text-[10px]">
+                                <thead>
+                                  <tr style={{ background: "var(--card)" }}>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Гос. номер</th>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Тип</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Параметр</th>
+                                    <th style={{ padding: 4, textAlign: "center" }}>Год</th>
+                                    <th style={{ padding: 4, textAlign: "center" }}>Возр.</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>МРП</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Коэф.</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Налог</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {d.vehicle_items.map(v => {
+                                    const typeLabel = VEHICLE_TYPES_LIST.find(t => t.value === v.vehicle_type)?.label || v.vehicle_type;
+                                    let paramLabel = "—";
+                                    if (v.vehicle_type === "car" || v.vehicle_type === "motorcycle") {
+                                      paramLabel = `${v.engine_volume || 0} см³`;
+                                    } else if (v.vehicle_type === "truck") {
+                                      paramLabel = `${v.load_capacity || 0} т`;
+                                    } else if (v.vehicle_type === "bus") {
+                                      paramLabel = `${v.seats || 0} мест`;
+                                    } else {
+                                      paramLabel = `${v.engine_power || 0} кВт`;
+                                    }
+                                    return (
+                                      <tr key={v.asset_id} style={{ borderBottom: "1px solid var(--brd)" }}>
+                                        <td style={{ padding: 4 }}><b>{v.registration_number || v.name}</b></td>
+                                        <td style={{ padding: 4 }}>{typeLabel}</td>
+                                        <td style={{ padding: 4, textAlign: "right" }}>{paramLabel}</td>
+                                        <td style={{ padding: 4, textAlign: "center" }}>{v.year_made}</td>
+                                        <td style={{ padding: 4, textAlign: "center" }}>{v.age_years} л.</td>
+                                        <td style={{ padding: 4, textAlign: "right" }}>{v.base_rate_mrp}</td>
+                                        <td style={{ padding: 4, textAlign: "right" }}>{v.age_coefficient.toFixed(2)}</td>
+                                        <td style={{ padding: 4, textAlign: "right", fontWeight: 600, color: "#A855F7" }}>{fmtMoney(v.tax_amount)}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                  <tr style={{ background: "var(--card)", fontWeight: "bold" }}>
+                                    <td colSpan={7} style={{ padding: 4, textAlign: "right" }}>ИТОГО:</td>
+                                    <td style={{ padding: 4, textAlign: "right", color: "#A855F7" }}>{fmtMoney(d.vehicle_tax_total)}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
-                        <div className="rounded-lg p-3" style={{ background: "#A855F715" }}>
-                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>КПН ({d.tax_rate}%)</div>
-                          <div className="text-base font-bold" style={{ color: "#A855F7" }}>{fmtMoney(d.cit_amount)} ₸</div>
+                      )}
+
+                      {/* ═══ ЗЕМЛЯ ═══ */}
+                      {d.land_items.length > 0 && (
+                        <div className="rounded-lg p-3 mb-3" style={{ background: "var(--bg)", borderLeft: "3px solid #10B981" }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-[12px] font-bold flex items-center gap-1.5">
+                              <span>🌾</span> Земельный налог
+                              <span className="text-[10px] font-normal" style={{ color: "var(--t3)" }}>· По категории и площади</span>
+                            </div>
+                            <button onClick={() => setShowLand(!showLand)} className="cursor-pointer rounded-lg border-none text-[10px]" style={{ padding: "3px 8px", background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
+                              {showLand ? "Скрыть" : "Показать"}
+                            </button>
+                          </div>
+
+                          {showLand && (
+                            <div style={{ overflowX: "auto" }}>
+                              <table className="w-full text-[10px]">
+                                <thead>
+                                  <tr style={{ background: "var(--card)" }}>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Участок</th>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Кадастр</th>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Регион</th>
+                                    <th style={{ padding: 4, textAlign: "left" }}>Категория</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Площадь</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Ставка</th>
+                                    <th style={{ padding: 4, textAlign: "right" }}>Налог</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {d.land_items.map(l => {
+                                    const catLabel = LAND_CATEGORIES_LIST.find(c => c.value === l.category)?.label || l.category;
+                                    const isHa = ["agricultural", "forest", "water"].includes(l.category);
+                                    return (
+                                      <tr key={l.asset_id} style={{ borderBottom: "1px solid var(--brd)" }}>
+                                        <td style={{ padding: 4 }}><b>{l.name}</b></td>
+                                        <td style={{ padding: 4, fontFamily: "monospace", fontSize: 9 }}>{l.cadastral_number || "—"}</td>
+                                        <td style={{ padding: 4 }}>{l.region}</td>
+                                        <td style={{ padding: 4 }}>{catLabel}</td>
+                                        <td style={{ padding: 4, textAlign: "right" }}>
+                                          {isHa ? `${l.area_ha} га` : `${fmtMoney(l.area_sqm)} м²`}
+                                        </td>
+                                        <td style={{ padding: 4, textAlign: "right" }}>{l.rate_per_unit} ₸{isHa ? "/га" : "/м²"}</td>
+                                        <td style={{ padding: 4, textAlign: "right", fontWeight: 600, color: "#10B981" }}>{fmtMoney(l.tax_amount)}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                  <tr style={{ background: "var(--card)", fontWeight: "bold" }}>
+                                    <td colSpan={6} style={{ padding: 4, textAlign: "right" }}>ИТОГО ({d.land_total_area_ha.toFixed(2)} га):</td>
+                                    <td style={{ padding: 4, textAlign: "right", color: "#10B981" }}>{fmtMoney(d.land_tax_total)}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ═══ ИТОГО ═══ */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                        <div className="rounded-lg p-3" style={{ background: "var(--bg)" }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>Начислено налогов</div>
+                          <div className="text-base font-bold">{fmtMoney(d.total_tax)} ₸</div>
                         </div>
                         <div className="rounded-lg p-3" style={{ background: "var(--bg)" }}>
                           <div className="text-[10px]" style={{ color: "var(--t3)" }}>Авансовые платежи</div>
-                          <div className="text-base font-bold">{fmtMoney(d.cit_advance_payments)} ₸</div>
+                          <div className="text-base font-bold">{fmtMoney(d.advance_payments_paid)} ₸</div>
+                        </div>
+                        <div className="rounded-lg p-3" style={{ background: d.is_to_pay ? "#EF444415" : "#10B98115", borderLeft: `3px solid ${d.is_to_pay ? "#EF4444" : "#10B981"}` }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.is_to_pay ? "К ДОПЛАТЕ" : "К ВОЗВРАТУ"}</div>
+                          <div className="text-lg font-bold" style={{ color: d.is_to_pay ? "#EF4444" : "#10B981" }}>{fmtMoney(d.is_to_pay ? d.to_pay : d.to_refund)} ₸</div>
                         </div>
                       </div>
 
-                      <div className="rounded-lg p-4" style={{ background: d.is_to_pay ? "#EF444415" : "#10B98115", border: `1px solid ${d.is_to_pay ? "#EF444440" : "#10B98140"}` }}>
-                        <div className="text-[11px]" style={{ color: "var(--t3)" }}>{d.is_to_pay ? "К ДОПЛАТЕ В БЮДЖЕТ" : "К ВОЗВРАТУ ИЗ БЮДЖЕТА"}</div>
-                        <div className="text-xl font-bold" style={{ color: d.is_to_pay ? "#EF4444" : "#10B981" }}>
-                          {fmtMoney(d.is_to_pay ? d.cit_to_pay : d.cit_to_refund)} ₸
-                        </div>
-                        <div className="text-[10px] mt-1" style={{ color: "var(--t3)" }}>
-                          Срок уплаты: до 10 апреля {d.year + 1} года
-                        </div>
-                      </div>
-
-                      {/* ПРИЛОЖЕНИЕ 100.03 — Амортизация */}
-                      <div className="rounded-lg p-3 mt-3" style={{ background: "var(--bg)" }}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-[12px] font-bold">📋 Приложение 100.03 — Амортизация ОС</div>
-                          <button onClick={() => setShowDepGroups(!showDepGroups)} className="cursor-pointer rounded-lg border-none text-[10px]" style={{ padding: "3px 8px", background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
-                            {showDepGroups ? "Скрыть" : "Показать"}
-                          </button>
-                        </div>
-                        <div className="text-[10px]" style={{ color: "var(--t3)" }}>
-                          Налоговая амортизация по 4 группам фиксированных активов:
-                          {" "}<b>{fmtMoney(d.depreciation_groups.reduce((s, g) => s + g.depreciation_amount, 0))} ₸</b>
-                        </div>
-
-                        {showDepGroups && (
-                          <div className="mt-3" style={{ overflowX: "auto" }}>
-                            <table className="w-full text-[10px]">
-                              <thead>
-                                <tr style={{ background: "var(--card)" }}>
-                                  <th style={{ padding: 4, textAlign: "left" }}>Группа</th>
-                                  <th style={{ padding: 4, textAlign: "right" }}>На начало</th>
-                                  <th style={{ padding: 4, textAlign: "right" }}>Поступл.</th>
-                                  <th style={{ padding: 4, textAlign: "right" }}>Выбытие</th>
-                                  <th style={{ padding: 4, textAlign: "right" }}>Норма</th>
-                                  <th style={{ padding: 4, textAlign: "right" }}>Амортизация</th>
-                                  <th style={{ padding: 4, textAlign: "right" }}>На конец</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {d.depreciation_groups.map(g => (
-                                  <tr key={g.group_number} style={{ borderBottom: "1px solid var(--brd)" }}>
-                                    <td style={{ padding: 4 }}>
-                                      <b>Группа {g.group_number}</b><br/>
-                                      <span style={{ color: "var(--t3)", fontSize: 9 }}>{g.group_name}</span>
-                                    </td>
-                                    <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(g.cost_at_start)}</td>
-                                    <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(g.additions)}</td>
-                                    <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(g.disposals)}</td>
-                                    <td style={{ padding: 4, textAlign: "right" }}>{g.depreciation_rate}%</td>
-                                    <td style={{ padding: 4, textAlign: "right", fontWeight: 600, color: "#A855F7" }}>{fmtMoney(g.depreciation_amount)}</td>
-                                    <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(g.cost_at_end)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Подсказка */}
                       <div className="rounded-lg p-3 mt-3 text-[10px]" style={{ background: "#3B82F610", color: "var(--t2)" }}>
-                        💡 <b>Откуда данные:</b><br/>
-                        • <b>СГД</b> — из проводок Кт счетов 6010-6260 (доходы)<br/>
-                        • <b>Вычеты</b> — из проводок Дт счетов 7010-7990 (расходы)<br/>
-                        • <b>Амортизация по группам</b> — из справочника Основных средств с указанием налоговой группы<br/>
-                        💡 <b>Срок уплаты КПН:</b> до 10 апреля следующего года (на 10 дней позже подачи декларации)<br/>
-                        💡 <b>Авансовые платежи КПН</b> — ежемесячно до 25 числа в течение года, расчитываются от прогноза прибыли
+                        💡 <b>Откуда данные:</b> из справочника основных средств (модуль 🏢 ОС). У каждого актива должен быть указан <code>tax_object_type</code>: property/vehicle/land.<br/>
+                        💡 <b>Налог на имущество</b> — 1.5% от среднегодовой остаточной стоимости (для юрлиц).<br/>
+                        💡 <b>Налог на транспорт</b> — по таблице ставок в МРП (ст.492 НК РК). Для авто 6+ лет применяется коэф. 0.7, для 16+ лет — 0.3.<br/>
+                        💡 <b>Земельный налог</b> — по категории: с/х земли по га, населённые пункты по кв.м.<br/>
+                        💡 <b>Авансовые платежи</b> — берутся из проводок Дт 3160/3170/3180 (расчёты по налогам).<br/>
+                        💡 <b>Срок сдачи:</b> до 31 марта · <b>Срок уплаты КПН:</b> до 10 апреля следующего года.
                       </div>
                     </>
                   );
@@ -742,7 +809,6 @@ ${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸`
         </>
       )}
 
-      {/* ═══ ИСТОРИЯ ═══ */}
       {tab === "history" && (
         <div className="rounded-xl" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
           {declarations.length === 0 ? (
@@ -803,9 +869,9 @@ ${d.is_to_pay ? `К доплате: ${d.cit_to_pay.toLocaleString("ru-RU")} ₸`
       )}
 
       <div className="rounded-xl p-3 text-[10px]" style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
-        💡 <b>Доступные формы:</b> 910.00 (упрощёнка), 200.00 (соц.налоги), 300.00 (НДС), <b>100.00 (КПН) — НОВАЯ!</b><br/>
-        💡 <b>Форма 100.00</b> — самая сложная годовая декларация для всех ТОО на ОУР. Ставка 20% от прибыли.<br/>
-        💡 <b>Срок сдачи 100.00:</b> до 31 марта следующего года · <b>Срок уплаты:</b> до 10 апреля следующего года.
+        💡 <b>Доступные формы:</b> 910.00 (упрощёнка), 200.00 (соц.налоги), 300.00 (НДС), 100.00 (КПН), <b>700.00 (имущество/транспорт/земля) — НОВАЯ!</b><br/>
+        💡 <b>Форма 700.00</b> — годовая декларация для всех владельцев налогооблагаемого имущества. Ставки: имущество 1.5%, транспорт по МРП, земля по категории.<br/>
+        💡 <b>Срок сдачи 700.00:</b> до 31 марта следующего года.
       </div>
     </div>
   );
