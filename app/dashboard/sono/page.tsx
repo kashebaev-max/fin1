@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { fmtMoney } from "@/lib/tax2026";
 import { calculate910, validate910, generate910XML, F910_INFO, type F910Data } from "@/lib/fno/form-910";
 import { calculate200, validate200, generate200XML, F200_INFO, type F200Data } from "@/lib/fno/form-200";
+import { calculate300, validate300, generate300XML, F300_INFO, type F300Data } from "@/lib/fno/form-300";
 
 interface FNODeclaration {
   id: string;
@@ -35,9 +36,9 @@ interface DeadlineItem {
 }
 
 const FORMS = [
-  { code: "910.00", info: F910_INFO, calculator: "calc910" },
-  { code: "200.00", info: F200_INFO, calculator: "calc200" },
-  // Можно добавлять новые формы — 300.00, 100.00 и т.д.
+  { code: "910.00", info: F910_INFO },
+  { code: "200.00", info: F200_INFO },
+  { code: "300.00", info: F300_INFO },
 ];
 
 const STATUS_COLORS: Record<string, { c: string; l: string }> = {
@@ -59,19 +60,19 @@ export default function SonoPage() {
   const [tab, setTab] = useState<"calendar" | "create" | "history">("calendar");
   const [loading, setLoading] = useState(true);
 
-  // Создание декларации
   const [selectedForm, setSelectedForm] = useState<string>("910.00");
   const [year, setYear] = useState(new Date().getFullYear());
-  const [period, setPeriod] = useState<number>(1); // halfYear или quarter
+  const [period, setPeriod] = useState<number>(1);
   const [calculating, setCalculating] = useState(false);
-  const [calculatedData, setCalculatedData] = useState<F910Data | F200Data | null>(null);
+  const [calculatedData, setCalculatedData] = useState<F910Data | F200Data | F300Data | null>(null);
   const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] } | null>(null);
   const [xmlContent, setXmlContent] = useState("");
   const [savingDecl, setSavingDecl] = useState(false);
 
-  // AI совет
   const [aiAdvice, setAiAdvice] = useState("");
   const [loadingAdvice, setLoadingAdvice] = useState(false);
+
+  const [showRegisters, setShowRegisters] = useState(false);
 
   const [msg, setMsg] = useState("");
 
@@ -92,17 +93,14 @@ export default function SonoPage() {
     setLoading(false);
   }
 
-  // ═══ Расчёт сроков сдачи ═══
-
   function calculateNextDeadlines() {
     const now = new Date();
     const upcoming: { deadline: DeadlineItem; dueDate: Date; daysLeft: number; period: string }[] = [];
 
     for (const d of deadlines) {
-      // Определяем все периоды для которых ещё не прошёл срок или скоро будет
       if (d.period_type === "quarter") {
         for (let q = 1; q <= 4; q++) {
-          const periodEndMonth = q * 3; // 3, 6, 9, 12
+          const periodEndMonth = q * 3;
           const dueDate = new Date(now.getFullYear(), periodEndMonth - 1 + d.due_month_offset, d.due_day);
           const daysLeft = Math.floor((dueDate.getTime() - now.getTime()) / 86400000);
           if (daysLeft >= -30 && daysLeft <= 90) {
@@ -130,8 +128,6 @@ export default function SonoPage() {
     return upcoming.sort((a, b) => a.daysLeft - b.daysLeft);
   }
 
-  // ═══ Создание декларации ═══
-
   async function calculateDeclaration() {
     if (!userId) return;
     setCalculating(true);
@@ -145,15 +141,17 @@ export default function SonoPage() {
       let xml: string;
 
       if (selectedForm === "910.00") {
-        const halfYear = period as 1 | 2;
-        data = await calculate910(supabase, userId, year, halfYear);
-        val = validate910(data as F910Data);
-        xml = generate910XML(data as F910Data);
+        data = await calculate910(supabase, userId, year, period as 1 | 2);
+        val = validate910(data);
+        xml = generate910XML(data);
       } else if (selectedForm === "200.00") {
-        const quarter = period as 1 | 2 | 3 | 4;
-        data = await calculate200(supabase, userId, year, quarter);
-        val = validate200(data as F200Data);
-        xml = generate200XML(data as F200Data);
+        data = await calculate200(supabase, userId, year, period as 1 | 2 | 3 | 4);
+        val = validate200(data);
+        xml = generate200XML(data);
+      } else if (selectedForm === "300.00") {
+        data = await calculate300(supabase, userId, year, period as 1 | 2 | 3 | 4);
+        val = validate300(data);
+        xml = generate300XML(data);
       } else {
         setMsg(`❌ Форма ${selectedForm} ещё не реализована`);
         setCalculating(false);
@@ -181,7 +179,7 @@ export default function SonoPage() {
       form_code: selectedForm,
       form_name: formInfo?.name,
       period_year: year,
-      period_quarter: selectedForm === "200.00" ? period : null,
+      period_quarter: ["200.00", "300.00"].includes(selectedForm) ? period : null,
       period_month: null,
       period_type: formInfo?.period_type || "quarter",
       tin: (calculatedData as any).tin,
@@ -225,12 +223,28 @@ export default function SonoPage() {
     setLoadingAdvice(true);
     setAiAdvice("");
 
-    const ctxText = `Форма: ${selectedForm}
+    let ctxText = `Форма: ${selectedForm}
 Период: ${year} год, ${selectedForm === "910.00" ? `${period}-е полугодие` : `${period} квартал`}
-Налогоплательщик: ${(calculatedData as any).taxpayer_name} (${(calculatedData as any).tin})
-${selectedForm === "910.00" ? `Доход: ${(calculatedData as any).income_total?.toLocaleString("ru-RU")} ₸\nНалог: ${(calculatedData as any).tax_amount?.toLocaleString("ru-RU")} ₸\nК уплате всего: ${(calculatedData as any).total_to_pay?.toLocaleString("ru-RU")} ₸` : ""}
-${selectedForm === "200.00" ? `ИПН: ${(calculatedData as any).total_ipn?.toLocaleString("ru-RU")} ₸\nСН: ${(calculatedData as any).total_social_tax?.toLocaleString("ru-RU")} ₸\nК уплате: ${(calculatedData as any).total_to_pay?.toLocaleString("ru-RU")} ₸` : ""}
-${validation?.warnings.length ? `\nПредупреждения:\n${validation.warnings.join("\n")}` : ""}`;
+Налогоплательщик: ${(calculatedData as any).taxpayer_name} (${(calculatedData as any).tin})`;
+
+    if (selectedForm === "910.00") {
+      ctxText += `\nДоход: ${(calculatedData as F910Data).income_total?.toLocaleString("ru-RU")} ₸\nНалог: ${(calculatedData as F910Data).tax_amount?.toLocaleString("ru-RU")} ₸\nК уплате всего: ${(calculatedData as F910Data).total_to_pay?.toLocaleString("ru-RU")} ₸`;
+    } else if (selectedForm === "200.00") {
+      ctxText += `\nИПН: ${(calculatedData as F200Data).total_ipn?.toLocaleString("ru-RU")} ₸\nСН: ${(calculatedData as F200Data).total_social_tax?.toLocaleString("ru-RU")} ₸\nК уплате: ${(calculatedData as F200Data).total_to_pay?.toLocaleString("ru-RU")} ₸`;
+    } else if (selectedForm === "300.00") {
+      const d = calculatedData as F300Data;
+      ctxText += `\nОборот по реализации (16%): ${d.sales_16_amount.toLocaleString("ru-RU")} ₸
+НДС начисленный: ${d.total_output_vat.toLocaleString("ru-RU")} ₸
+Приобретения с НДС: ${d.purchases_with_vat_amount.toLocaleString("ru-RU")} ₸
+НДС к зачёту: ${d.total_input_vat.toLocaleString("ru-RU")} ₸
+${d.is_to_pay ? `НДС к УПЛАТЕ: ${d.final_amount.toLocaleString("ru-RU")} ₸` : `НДС к ВОЗМЕЩЕНИЮ: ${d.final_amount.toLocaleString("ru-RU")} ₸`}
+Реестр F1 (приобретения): ${d.purchase_invoices.length} записей
+Реестр F2 (реализация): ${d.sales_invoices.length} записей`;
+    }
+    
+    if (validation?.warnings.length) {
+      ctxText += `\n\nПредупреждения:\n${validation.warnings.join("\n")}`;
+    }
 
     try {
       const res = await fetch("/.netlify/functions/ai-zhanara", {
@@ -240,7 +254,7 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
           mode: "chat",
           messages: [{
             role: "user",
-            content: `Проверь мою декларацию ${selectedForm}. Что важно проверить перед подачей? Есть ли возможность снизить налог?`,
+            content: `Проверь мою декларацию ${selectedForm}. Что важно проверить перед подачей? Есть ли возможность снизить налог или оптимизировать НДС?`,
           }],
           contextText: ctxText,
         }),
@@ -265,6 +279,7 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
   if (loading) return <div className="text-center py-8 text-sm" style={{ color: "var(--t3)" }}>Загрузка...</div>;
 
   const upcomingDeadlines = calculateNextDeadlines();
+  const isQuarterForm = ["200.00", "300.00"].includes(selectedForm);
 
   return (
     <div className="flex flex-col gap-5">
@@ -304,7 +319,7 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
               <div className="text-[12px]" style={{ color: "var(--t3)" }}>Ближайших сроков нет</div>
             </div>
           ) : (
-            upcomingDeadlines.slice(0, 10).map(({ deadline, dueDate, daysLeft, period }, i) => {
+            upcomingDeadlines.slice(0, 10).map(({ deadline, dueDate, daysLeft, period: p }, i) => {
               const isOverdue = daysLeft < 0;
               const isUrgent = daysLeft >= 0 && daysLeft <= 7;
               const color = isOverdue ? "#EF4444" : isUrgent ? "#F59E0B" : "#10B981";
@@ -320,7 +335,7 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
                       </div>
                       <div className="text-[11px]" style={{ color: "var(--t2)" }}>{deadline.form_name}</div>
                       <div className="text-[10px] mt-1" style={{ color: "var(--t3)" }}>
-                        За период: <b>{period}</b> · Срок: <b>{dueDate.toLocaleDateString("ru-RU")}</b>
+                        За период: <b>{p}</b> · Срок: <b>{dueDate.toLocaleDateString("ru-RU")}</b>
                       </div>
                     </div>
                     <button onClick={() => {
@@ -346,8 +361,8 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <div>
                 <label className="text-[10px] font-semibold mb-1 block" style={{ color: "var(--t3)" }}>Форма</label>
-                <select value={selectedForm} onChange={e => { setSelectedForm(e.target.value); setCalculatedData(null); }}>
-                  {FORMS.map(f => <option key={f.code} value={f.code}>{f.code} — {f.info.name.slice(0, 50)}...</option>)}
+                <select value={selectedForm} onChange={e => { setSelectedForm(e.target.value); setCalculatedData(null); setPeriod(1); }}>
+                  {FORMS.map(f => <option key={f.code} value={f.code}>{f.code} — {f.info.name.slice(0, 60)}</option>)}
                 </select>
               </div>
               <div>
@@ -378,7 +393,6 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
               </div>
             </div>
 
-            {/* Информация о форме */}
             {(() => {
               const formInfo = FORMS.find(f => f.code === selectedForm)?.info;
               if (!formInfo) return null;
@@ -398,7 +412,6 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
             </button>
           </div>
 
-          {/* РЕЗУЛЬТАТ РАСЧЁТА */}
           {calculatedData && (
             <>
               {validation && (
@@ -471,23 +484,172 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
                       <div className="text-[10px]" style={{ color: "var(--t3)" }}>ВСЕГО К УПЛАТЕ ЗА КВАРТАЛ</div>
                       <div className="text-base font-bold" style={{ color: "var(--accent)" }}>{fmtMoney((calculatedData as F200Data).total_to_pay)} ₸</div>
                     </div>
-
-                    <div className="text-[11px] font-bold mt-3 mb-2">Помесячная разбивка:</div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(calculatedData as F200Data).monthly_data.map(m => (
-                        <div key={m.month} className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
-                          <div className="text-[10px] font-bold">{["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"][m.month - 1]}</div>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>{m.employees_count} сотр.</div>
-                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>ФОТ: {fmtMoney(m.payroll_total)} ₸</div>
-                          <div className="text-[9px] font-bold" style={{ color: "var(--accent)" }}>ИПН: {fmtMoney(m.ipn_amount)} ₸</div>
-                        </div>
-                      ))}
-                    </div>
                   </>
                 )}
+
+                {/* ═══ ФОРМА 300.00 ═══ */}
+                {selectedForm === "300.00" && (() => {
+                  const d = calculatedData as F300Data;
+                  return (
+                    <>
+                      {/* РАЗДЕЛ 1 — РЕАЛИЗАЦИЯ */}
+                      <div className="text-[12px] font-bold mb-2 flex items-center gap-1.5">
+                        <span style={{ color: "#10B981" }}>📤</span> Раздел 1: Реализация (выходной НДС)
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Реализация 16%</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_16_amount)}</div>
+                          <div className="text-[9px]" style={{ color: "#10B981" }}>НДС: {fmtMoney(d.sales_16_vat)}</div>
+                        </div>
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Реализация 12%</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_12_amount)}</div>
+                          <div className="text-[9px]" style={{ color: "#10B981" }}>НДС: {fmtMoney(d.sales_12_vat)}</div>
+                        </div>
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Экспорт (0%)</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_0_amount)}</div>
+                        </div>
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Освобождённые</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.sales_exempt_amount)}</div>
+                        </div>
+                      </div>
+
+                      {/* РАЗДЕЛ 2 — ПРИОБРЕТЕНИЯ */}
+                      <div className="text-[12px] font-bold mb-2 flex items-center gap-1.5">
+                        <span style={{ color: "#3B82F6" }}>📥</span> Раздел 2: Приобретения (входной НДС)
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>С НДС</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.purchases_with_vat_amount)}</div>
+                          <div className="text-[9px]" style={{ color: "#3B82F6" }}>НДС: {fmtMoney(d.purchases_input_vat)}</div>
+                        </div>
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Без НДС</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.purchases_no_vat_amount)}</div>
+                        </div>
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Импорт</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.imports_amount)}</div>
+                          <div className="text-[9px]" style={{ color: "#3B82F6" }}>НДС: {fmtMoney(d.imports_vat)}</div>
+                        </div>
+                        <div className="rounded-lg p-2" style={{ background: "var(--bg)" }}>
+                          <div className="text-[9px]" style={{ color: "var(--t3)" }}>Освобождённые</div>
+                          <div className="text-[12px] font-bold">{fmtMoney(d.purchases_exempt_amount)}</div>
+                        </div>
+                      </div>
+
+                      {/* РАЗДЕЛ 3 — РАСЧЁТ */}
+                      <div className="text-[12px] font-bold mb-2 flex items-center gap-1.5">
+                        <span style={{ color: d.is_to_pay ? "#EF4444" : "#10B981" }}>💰</span> Раздел 3: Итоговый расчёт
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                        <div className="rounded-lg p-3" style={{ background: "#10B98115" }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>НДС начисленный</div>
+                          <div className="text-base font-bold" style={{ color: "#10B981" }}>{fmtMoney(d.total_output_vat)} ₸</div>
+                        </div>
+                        <div className="rounded-lg p-3" style={{ background: "#3B82F615" }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>НДС к зачёту</div>
+                          <div className="text-base font-bold" style={{ color: "#3B82F6" }}>{fmtMoney(d.total_input_vat)} ₸</div>
+                        </div>
+                        <div className="rounded-lg p-3" style={{ background: d.is_to_pay ? "#EF444415" : "#10B98115" }}>
+                          <div className="text-[10px]" style={{ color: "var(--t3)" }}>{d.is_to_pay ? "К УПЛАТЕ В БЮДЖЕТ" : "К ВОЗМЕЩЕНИЮ"}</div>
+                          <div className="text-lg font-bold" style={{ color: d.is_to_pay ? "#EF4444" : "#10B981" }}>{fmtMoney(d.final_amount)} ₸</div>
+                        </div>
+                      </div>
+
+                      {/* РЕЕСТРЫ */}
+                      <div className="rounded-lg p-3 mt-3" style={{ background: "var(--bg)" }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-[12px] font-bold">📋 Реестры приложений</div>
+                          <button onClick={() => setShowRegisters(!showRegisters)} className="cursor-pointer rounded-lg border-none text-[10px]" style={{ padding: "3px 8px", background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
+                            {showRegisters ? "Скрыть" : "Показать"}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div>📥 <b>F1 (Приобретения):</b> {d.purchase_invoices.length} счетов-фактур</div>
+                          <div>📤 <b>F2 (Реализация):</b> {d.sales_invoices.length} счетов-фактур</div>
+                        </div>
+
+                        {showRegisters && (
+                          <>
+                            {d.sales_invoices.length > 0 && (
+                              <div className="mt-3">
+                                <div className="text-[11px] font-bold mb-1">F2 — Реализация:</div>
+                                <div style={{ maxHeight: 200, overflow: "auto" }}>
+                                  <table className="w-full text-[10px]">
+                                    <thead><tr style={{ background: "var(--card)" }}>
+                                      <th style={{ padding: 4, textAlign: "left" }}>№</th>
+                                      <th style={{ padding: 4, textAlign: "left" }}>Дата</th>
+                                      <th style={{ padding: 4, textAlign: "left" }}>Покупатель</th>
+                                      <th style={{ padding: 4, textAlign: "right" }}>Без НДС</th>
+                                      <th style={{ padding: 4, textAlign: "right" }}>НДС</th>
+                                    </tr></thead>
+                                    <tbody>
+                                      {d.sales_invoices.slice(0, 20).map((inv, i) => (
+                                        <tr key={i} style={{ borderBottom: "1px solid var(--brd)" }}>
+                                          <td style={{ padding: 4 }}>{inv.invoice_number}</td>
+                                          <td style={{ padding: 4 }}>{inv.invoice_date}</td>
+                                          <td style={{ padding: 4 }}>{inv.buyer_name}</td>
+                                          <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(inv.amount_without_vat)}</td>
+                                          <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(inv.vat_amount)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                  {d.sales_invoices.length > 20 && <div className="text-center text-[10px] py-1" style={{ color: "var(--t3)" }}>...и ещё {d.sales_invoices.length - 20} записей</div>}
+                                </div>
+                              </div>
+                            )}
+
+                            {d.purchase_invoices.length > 0 && (
+                              <div className="mt-3">
+                                <div className="text-[11px] font-bold mb-1">F1 — Приобретения:</div>
+                                <div style={{ maxHeight: 200, overflow: "auto" }}>
+                                  <table className="w-full text-[10px]">
+                                    <thead><tr style={{ background: "var(--card)" }}>
+                                      <th style={{ padding: 4, textAlign: "left" }}>№</th>
+                                      <th style={{ padding: 4, textAlign: "left" }}>Дата</th>
+                                      <th style={{ padding: 4, textAlign: "left" }}>Поставщик</th>
+                                      <th style={{ padding: 4, textAlign: "right" }}>Без НДС</th>
+                                      <th style={{ padding: 4, textAlign: "right" }}>НДС</th>
+                                    </tr></thead>
+                                    <tbody>
+                                      {d.purchase_invoices.slice(0, 20).map((inv, i) => (
+                                        <tr key={i} style={{ borderBottom: "1px solid var(--brd)" }}>
+                                          <td style={{ padding: 4 }}>{inv.invoice_number}</td>
+                                          <td style={{ padding: 4 }}>{inv.invoice_date}</td>
+                                          <td style={{ padding: 4 }}>{inv.supplier_name}</td>
+                                          <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(inv.amount_without_vat)}</td>
+                                          <td style={{ padding: 4, textAlign: "right" }}>{fmtMoney(inv.vat_amount)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                  {d.purchase_invoices.length > 20 && <div className="text-center text-[10px] py-1" style={{ color: "var(--t3)" }}>...и ещё {d.purchase_invoices.length - 20} записей</div>}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* Подсказка для НДС */}
+                      <div className="rounded-lg p-3 mt-3 text-[10px]" style={{ background: "#3B82F610", color: "var(--t2)" }}>
+                        💡 <b>Откуда данные:</b><br/>
+                        • <b>Реализация</b> — из проводок Кт 6010 + заказы (orders) для реестра F2<br/>
+                        • <b>Приобретения с НДС</b> — из проводок Дт 1310/7210 Кт 3310 + Дт 1420 (НДС к зачёту)<br/>
+                        • <b>F1 реестр</b> — из распознанных счетов-фактур (модуль «Сканирование документов»)<br/>
+                        💡 <b>Чтобы реестры были полными</b> — все счета-фактуры от поставщиков загружайте через модуль 📄 Сканирование
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
-              {/* Действия */}
               <div className="rounded-xl p-4" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
                 <div className="text-sm font-bold mb-3">📤 Дальнейшие действия</div>
                 <div className="flex gap-2 flex-wrap">
@@ -515,7 +677,6 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
                 )}
               </div>
 
-              {/* Превью XML */}
               <details className="rounded-xl p-3" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
                 <summary className="cursor-pointer text-[12px] font-bold">🗂 Показать XML (для проверки)</summary>
                 <pre className="mt-2 text-[10px] overflow-auto" style={{ background: "var(--bg)", padding: 10, borderRadius: 6, maxHeight: 300, color: "var(--t2)" }}>{xmlContent}</pre>
@@ -586,10 +747,9 @@ ${validation?.warnings.length ? `\nПредупреждения:\n${validation.w
       )}
 
       <div className="rounded-xl p-3 text-[10px]" style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
-        💡 <b>Как подать в СОНО:</b> 1) Скачайте XML из системы → 2) Откройте <a href="https://cabinet.salyk.kz" target="_blank" rel="noopener noreferrer" style={{ color: "#A855F7" }}>cabinet.salyk.kz</a> → 3) Раздел «Налоговая отчётность» → «Импорт декларации» → 4) Загрузите файл → 5) Подпишите ЭЦП и отправьте.<br/>
-        💡 <b>XML-схемы</b> основаны на актуальных XSD КГД на 2026 год. При смене формы КГД схему нужно будет обновить.<br/>
-        💡 <b>Жанара</b> проверит декларацию перед скачиванием — найдёт расхождения в расчётах и подсветит риски.<br/>
-        💡 <b>Доступные формы:</b> 910.00 (упрощёнка), 200.00 (соц. налоги). Формы 300.00 (НДС), 100.00 (КПН), 220.00 (ИП ОУР) — добавим в следующих пакетах.
+        💡 <b>Как подать в СОНО:</b> 1) Скачайте XML из системы → 2) Откройте <a href="https://cabinet.salyk.kz" target="_blank" rel="noopener noreferrer" style={{ color: "#A855F7" }}>cabinet.salyk.kz</a> → 3) Налоговая отчётность → Импорт декларации → 4) Загрузите файл → 5) Подпишите ЭЦП и отправьте.<br/>
+        💡 <b>Доступные формы:</b> 910.00 (упрощёнка), 200.00 (соц.налоги), <b>300.00 (НДС) — НОВАЯ!</b><br/>
+        💡 <b>Для качественной 300.00</b> — используйте сканер документов: счета-фактуры от поставщиков пойдут в реестр F1.
       </div>
     </div>
   );
