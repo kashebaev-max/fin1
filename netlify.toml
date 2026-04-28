@@ -1,18 +1,8 @@
-# Конфигурация Netlify
-# 
-# Этот файл увеличивает таймаут для AI функций до 26 секунд (вместо дефолтных 10).
-# ВАЖНО: 26 секунд работает на Netlify Pro плане. На Free плане лимит 10 секунд.
-
 [build]
   command = "npm run build"
   publish = ".next"
 
-[functions]
-  # Дефолтный таймаут для всех функций — 26 секунд
-  # На Free плане Netlify обрежет до 10 сек, но не упадёт
-  
 [functions."ai-zhanara"]
-  # AI функция может думать до 26 секунд
   timeout = 26
 
 [functions."scan-document"]
@@ -21,7 +11,6 @@
 [functions."generate-document"]
   timeout = 26
 
-# CORS для всех функций
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]

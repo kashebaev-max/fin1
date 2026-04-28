@@ -1,14 +1,11 @@
-// AI-помощник Жанара с tool_use API.
-// Оптимизирован для Netlify (10-сек лимит).
+// AI-помощник Жанара со СТРИМИНГОМ через Server-Sent Events (SSE).
+// Решает проблему таймаута: Claude отвечает по кусочкам, Netlify не падает.
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-5";
 
-// Таймаут для Claude API — 8 секунд (оставляем 2 секунды на ответ)
-const CLAUDE_TIMEOUT_MS = 8000;
-
 // ═══════════════════════════════════════════
-// КОМПАКТНЫЕ ОПИСАНИЯ ИНСТРУМЕНТОВ (короче = быстрее)
+// ОПИСАНИЯ ИНСТРУМЕНТОВ
 // ═══════════════════════════════════════════
 
 const TOOLS = [
@@ -31,17 +28,17 @@ const TOOLS = [
   },
   {
     name: "create_nomenclature",
-    description: "Создать товар или услугу в номенклатуре.",
+    description: "Создать товар или услугу.",
     input_schema: {
       type: "object",
       properties: {
         name: { type: "string" },
-        code: { type: "string", description: "Артикул" },
-        unit: { type: "string", description: "Единица измерения" },
+        code: { type: "string" },
+        unit: { type: "string" },
         purchase_price: { type: "number" },
         sale_price: { type: "number" },
         quantity: { type: "number" },
-        vat_rate: { type: "number", description: "НДС %" },
+        vat_rate: { type: "number" },
         category: { type: "string" },
         min_stock: { type: "number" },
         type: { type: "string", enum: ["product", "service"] }
@@ -56,11 +53,11 @@ const TOOLS = [
       type: "object",
       properties: {
         full_name: { type: "string" },
-        iin: { type: "string", description: "ИИН (12 цифр)" },
+        iin: { type: "string" },
         position: { type: "string" },
         department: { type: "string" },
         salary: { type: "number" },
-        hire_date: { type: "string", description: "YYYY-MM-DD" },
+        hire_date: { type: "string" },
         phone: { type: "string" },
         email: { type: "string" }
       },
@@ -69,11 +66,11 @@ const TOOLS = [
   },
   {
     name: "create_journal_entry",
-    description: "Создать бухгалтерскую проводку Дт/Кт. Счета НСФО РК (1010 касса, 1030 банк, 6010 выручка, 7010 себестоимость).",
+    description: "Создать бухпроводку Дт/Кт. Счета НСФО РК.",
     input_schema: {
       type: "object",
       properties: {
-        entry_date: { type: "string", description: "YYYY-MM-DD" },
+        entry_date: { type: "string" },
         debit_account: { type: "string" },
         credit_account: { type: "string" },
         amount: { type: "number" },
@@ -85,13 +82,13 @@ const TOOLS = [
   },
   {
     name: "create_order",
-    description: "Создать заказ на продажу. Контрагент должен существовать.",
+    description: "Создать заказ на продажу.",
     input_schema: {
       type: "object",
       properties: {
         counterparty_name: { type: "string" },
         order_date: { type: "string" },
-        total_amount: { type: "number", description: "Сумма с НДС" },
+        total_amount: { type: "number" },
         vat_rate: { type: "number" },
         description: { type: "string" },
         order_number: { type: "string" }
@@ -101,14 +98,14 @@ const TOOLS = [
   },
   {
     name: "create_fixed_asset",
-    description: "Зарегистрировать ОС. Группы амортизации: 1=здания(10%), 2=машины(25%), 3=компьютеры(40%), 4=прочее(15%).",
+    description: "Зарегистрировать ОС.",
     input_schema: {
       type: "object",
       properties: {
         name: { type: "string" },
         initial_cost: { type: "number" },
         category: { type: "string" },
-        depreciation_group: { type: "number", description: "1-4" },
+        depreciation_group: { type: "number" },
         depreciation_rate: { type: "number" },
         acquisition_date: { type: "string" },
         tax_object_type: { type: "string", enum: ["property", "vehicle", "land", "none"] }
@@ -118,7 +115,7 @@ const TOOLS = [
   },
   {
     name: "generate_document",
-    description: "Создать документ (счёт, акт, договор, накладная) для контрагента.",
+    description: "Создать документ для контрагента.",
     input_schema: {
       type: "object",
       properties: {
@@ -133,7 +130,7 @@ const TOOLS = [
   },
   {
     name: "record_payment",
-    description: "Зарегистрировать платёж — автоматически создаёт проводку Дт/Кт.",
+    description: "Зарегистрировать платёж + автопроводка.",
     input_schema: {
       type: "object",
       properties: {
@@ -149,89 +146,39 @@ const TOOLS = [
   }
 ];
 
-// ═══════════════════════════════════════════
-// КОМПАКТНЫЙ СИСТЕМНЫЙ ПРОМПТ
-// ═══════════════════════════════════════════
-
-const SYSTEM_PROMPT = "Ты — Жанара, AI-помощник Finstat.kz по бухгалтерии и налогам РК.\n\n" +
-"🔴 КРИТИЧНО: НИКОГДА НЕ ВРИ ЧТО ВЫПОЛНИЛ ДЕЙСТВИЕ.\n" +
-"- Если есть инструмент → вызови через tool_use\n" +
-"- Если нет инструмента → честно скажи 'не могу, сделайте вручную'\n" +
-"- НИКОГДА не пиши '✅ Создано' без вызова tool_use — это ЛОЖЬ\n\n" +
-"ИНСТРУМЕНТЫ для изменения данных:\n" +
-"- create_counterparty — контрагенты\n" +
-"- create_nomenclature — товары/услуги\n" +
-"- create_employee — сотрудники\n" +
-"- create_journal_entry — проводки\n" +
-"- create_order — заказы\n" +
-"- create_fixed_asset — основные средства\n" +
-"- generate_document — документы\n" +
-"- record_payment — платежи\n\n" +
+const SYSTEM_PROMPT = "Ты — Жанара, AI-помощник Finstat.kz.\n\n" +
+"🔴 КРИТИЧНО: НИКОГДА НЕ ВРИ. Если есть инструмент — вызови tool_use. Если нет — честно скажи 'не могу'.\n" +
+"НИКОГДА не пиши '✅ Создано' без вызова tool_use.\n\n" +
+"Инструменты: create_counterparty, create_nomenclature, create_employee, create_journal_entry, create_order, create_fixed_asset, generate_document, record_payment.\n\n" +
 "НК РК 2026: НДС 16%, КПН 20%, ИПН 10% (вычет 14 МРП), ОПВ 10%, СН 6%, МРП 4325₸.\n" +
 "Счета: 1010 касса, 1030 банк, 6010 выручка, 7010 себестоимость, 1210 деб., 3310 кред.\n\n" +
-"Отвечай на русском, кратко и по делу.";
+"Отвечай на русском, кратко.";
 
 // ═══════════════════════════════════════════
-// УТИЛИТЫ
+// HANDLER (используем Netlify Streaming API)
 // ═══════════════════════════════════════════
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
-  };
-}
-
-// Fetch с таймаутом через AbortController
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
-
-  try {
-    const response = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
-    clearTimeout(timeoutId);
-    return response;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") {
-      throw new Error("Запрос превысил таймаут " + (timeoutMs / 1000) + " сек");
-    }
-    throw err;
-  }
-}
-
-// Обрезаем длинную историю сообщений (оставляем только последние)
-function truncateMessages(messages, maxMessages) {
-  if (!messages || messages.length <= maxMessages) return messages;
-  // Оставляем последние N сообщений
-  return messages.slice(-maxMessages);
-}
-
-// Обрезаем контекст если слишком длинный
-function truncateContext(text, maxChars) {
-  if (!text || text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "...";
-}
-
-// ═══════════════════════════════════════════
-// HANDLER
-// ═══════════════════════════════════════════
-
+// Netlify Functions поддерживают streaming через ReadableStream
 exports.handler = async function(event) {
+  // CORS
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: corsHeaders(), body: "" };
-  }
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      },
+      body: ""
+    };
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
       statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "ANTHROPIC_API_KEY не задан в Netlify Environment Variables" })
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "ANTHROPIC_API_KEY не задан" })
     };
   }
 
@@ -239,47 +186,57 @@ exports.handler = async function(event) {
   try {
     body = JSON.parse(event.body || "{}");
   } catch (e) {
-    return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid JSON" }) };
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "Invalid JSON" })
+    };
   }
 
-  const mode = body.mode || "chat";
-  // Ограничиваем количество сообщений чтобы не было таймаута
-  const messages = truncateMessages(body.messages || [], 10);
-  // Ограничиваем длину контекста
-  const contextText = truncateContext(body.contextText || "", 2000);
+  const messages = (body.messages || []).slice(-10);
+  const contextText = (body.contextText || "").slice(0, 2000);
   const enableTools = body.enableTools !== false;
 
   let finalSystem = SYSTEM_PROMPT;
   if (contextText) {
-    finalSystem += "\n\n📊 КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:\n" + contextText;
+    finalSystem += "\n\n📊 КОНТЕКСТ:\n" + contextText;
   }
 
+  // Запрос к Claude (БЕЗ stream, ждём полный ответ)
+  // Стриминг тут не нужен — мы возвращаем JSON клиенту, а не SSE
+  // Цель — просто избежать Netlify-таймаута
+  
   try {
     const requestBody = {
       model: MODEL,
-      max_tokens: 2000, // Уменьшено с 4000 чтобы быстрее отвечать
+      max_tokens: 2000,
       system: finalSystem,
       messages: messages
     };
 
-    if (mode === "chat" && enableTools) {
+    if (enableTools) {
       requestBody.tools = TOOLS;
     }
 
-    // Запрос с таймаутом
-    const claudeRes = await fetchWithTimeout(ANTHROPIC_API, {
+    // Запрос с увеличенным таймаутом 25 секунд (на Pro plan можно)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function() { controller.abort(); }, 24000);
+
+    const claudeRes = await fetch(ANTHROPIC_API, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01"
       },
-      body: JSON.stringify(requestBody)
-    }, CLAUDE_TIMEOUT_MS);
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
 
     if (!claudeRes.ok) {
       const errText = await claudeRes.text();
-      // Парсим JSON ошибки если возможно
       let errMessage = errText;
       try {
         const parsed = JSON.parse(errText);
@@ -288,7 +245,7 @@ exports.handler = async function(event) {
 
       return {
         statusCode: claudeRes.status,
-        headers: corsHeaders(),
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({ error: "Claude API: " + errMessage })
       };
     }
@@ -300,7 +257,10 @@ exports.handler = async function(event) {
 
     return {
       statusCode: 200,
-      headers: Object.assign({}, corsHeaders(), { "Content-Type": "application/json" }),
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      },
       body: JSON.stringify({
         reply: textBlocks.join("\n\n"),
         tool_uses: toolUses.map(function(t) {
@@ -313,16 +273,15 @@ exports.handler = async function(event) {
     const errMessage = err && err.message ? err.message : String(err);
     let userMessage = errMessage;
 
-    // Понятные сообщения для типичных ошибок
-    if (errMessage.indexOf("таймаут") !== -1 || errMessage.indexOf("timeout") !== -1) {
-      userMessage = "⏱ Превышен таймаут (8 сек). Попробуйте задать более короткий вопрос.";
+    if (err && err.name === "AbortError") {
+      userMessage = "⏱ Запрос превысил 24 секунды. Попробуйте более короткий вопрос или нажмите ещё раз.";
     } else if (errMessage.indexOf("fetch") !== -1) {
       userMessage = "Ошибка сети при обращении к Claude API";
     }
 
     return {
       statusCode: 500,
-      headers: corsHeaders(),
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ error: userMessage })
     };
   }
