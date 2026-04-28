@@ -1,10 +1,13 @@
-// AI-помощник Жанара с РЕАЛЬНЫМ выполнением действий через tool_use API.
-// Жанара НЕ ВРЁТ — либо вызывает инструмент, либо честно говорит что нужно подтверждение.
+// AI-помощник Жанара с tool_use API.
+// Чистый JavaScript для Netlify Functions (без TypeScript синтаксиса).
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-5";
 
-// Описания всех инструментов (синхронизировано с lib/ai-actions.ts)
+// ═══════════════════════════════════════════
+// ОПИСАНИЯ ИНСТРУМЕНТОВ
+// ═══════════════════════════════════════════
+
 const TOOLS = [
   {
     name: "create_counterparty",
@@ -18,10 +21,10 @@ const TOOLS = [
         address: { type: "string", description: "Адрес" },
         phone: { type: "string", description: "Телефон" },
         email: { type: "string", description: "Email" },
-        director_name: { type: "string", description: "ФИО директора" },
+        director_name: { type: "string", description: "ФИО директора" }
       },
-      required: ["name"],
-    },
+      required: ["name"]
+    }
   },
   {
     name: "create_nomenclature",
@@ -38,10 +41,10 @@ const TOOLS = [
         vat_rate: { type: "number", description: "Ставка НДС (%)" },
         category: { type: "string", description: "Категория" },
         min_stock: { type: "number", description: "Минимальный остаток" },
-        type: { type: "string", enum: ["product", "service"], description: "Товар или услуга" },
+        type: { type: "string", enum: ["product", "service"], description: "Товар или услуга" }
       },
-      required: ["name"],
-    },
+      required: ["name"]
+    }
   },
   {
     name: "create_employee",
@@ -56,10 +59,10 @@ const TOOLS = [
         salary: { type: "number", description: "Оклад" },
         hire_date: { type: "string", description: "Дата приёма (YYYY-MM-DD)" },
         phone: { type: "string", description: "Телефон" },
-        email: { type: "string", description: "Email" },
+        email: { type: "string", description: "Email" }
       },
-      required: ["full_name"],
-    },
+      required: ["full_name"]
+    }
   },
   {
     name: "create_journal_entry",
@@ -72,10 +75,10 @@ const TOOLS = [
         credit_account: { type: "string", description: "Счёт Кредит" },
         amount: { type: "number", description: "Сумма" },
         description: { type: "string", description: "Содержание операции" },
-        doc_ref: { type: "string", description: "Номер документа" },
+        doc_ref: { type: "string", description: "Номер документа" }
       },
-      required: ["entry_date", "debit_account", "credit_account", "amount", "description"],
-    },
+      required: ["entry_date", "debit_account", "credit_account", "amount", "description"]
+    }
   },
   {
     name: "create_order",
@@ -88,10 +91,10 @@ const TOOLS = [
         total_amount: { type: "number", description: "Сумма с НДС" },
         vat_rate: { type: "number", description: "Ставка НДС" },
         description: { type: "string", description: "Описание" },
-        order_number: { type: "string", description: "Номер заказа" },
+        order_number: { type: "string", description: "Номер заказа" }
       },
-      required: ["counterparty_name", "total_amount"],
-    },
+      required: ["counterparty_name", "total_amount"]
+    }
   },
   {
     name: "create_fixed_asset",
@@ -105,10 +108,10 @@ const TOOLS = [
         depreciation_group: { type: "number", description: "Группа 1-4" },
         depreciation_rate: { type: "number", description: "Норма амортизации (%)" },
         acquisition_date: { type: "string", description: "Дата приобретения" },
-        tax_object_type: { type: "string", enum: ["property", "vehicle", "land", "none"], description: "Тип для налога" },
+        tax_object_type: { type: "string", enum: ["property", "vehicle", "land", "none"], description: "Тип для налога" }
       },
-      required: ["name", "initial_cost"],
-    },
+      required: ["name", "initial_cost"]
+    }
   },
   {
     name: "generate_document",
@@ -120,10 +123,10 @@ const TOOLS = [
         counterparty_name: { type: "string", description: "Контрагент" },
         title: { type: "string", description: "Заголовок" },
         amount: { type: "number", description: "Сумма" },
-        service_description: { type: "string", description: "Описание услуг" },
+        service_description: { type: "string", description: "Описание услуг" }
       },
-      required: ["document_type", "counterparty_name"],
-    },
+      required: ["document_type", "counterparty_name"]
+    }
   },
   {
     name: "record_payment",
@@ -136,15 +139,15 @@ const TOOLS = [
         payment_date: { type: "string", description: "Дата" },
         counterparty_name: { type: "string", description: "Контрагент" },
         method: { type: "string", enum: ["bank", "cash"], description: "Через банк или кассу" },
-        description: { type: "string", description: "Назначение" },
+        description: { type: "string", description: "Назначение" }
       },
-      required: ["payment_type", "amount", "counterparty_name"],
-    },
-  },
+      required: ["payment_type", "amount", "counterparty_name"]
+    }
+  }
 ];
 
 // ═══════════════════════════════════════════
-// СИСТЕМНЫЙ ПРОМПТ (КРИТИЧНО — ЗАПРЕТ ВРАТЬ!)
+// СИСТЕМНЫЙ ПРОМПТ
 // ═══════════════════════════════════════════
 
 const SYSTEM_PROMPT = `Ты — Жанара, AI-помощник системы Finstat.kz по бухгалтерии и налогам РК.
@@ -220,38 +223,53 @@ function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, OPTIONS"
   };
 }
 
 exports.handler = async function(event) {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders(), body: "" };
-  if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: corsHeaders(), body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return { statusCode: 500, headers: corsHeaders(), body: JSON.stringify({ error: "ANTHROPIC_API_KEY not set" }) };
+  if (!apiKey) {
+    return {
+      statusCode: 500,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: "ANTHROPIC_API_KEY не задан в Netlify Environment Variables" })
+    };
+  }
 
   let body;
-  try { body = JSON.parse(event.body || "{}"); }
-  catch { return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid JSON" }) }; }
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch (e) {
+    return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid JSON" }) };
+  }
 
-  const { mode = "chat", messages = [], contextText = "", enableTools = true } = body;
+  const mode = body.mode || "chat";
+  const messages = body.messages || [];
+  const contextText = body.contextText || "";
+  const enableTools = body.enableTools !== false;
 
   // Строим финальный системный промпт с контекстом
   let finalSystem = SYSTEM_PROMPT;
   if (contextText) {
-    finalSystem += `\n\n═══════════════════════════════════════════\nКОНТЕКСТ БИЗНЕСА ПОЛЬЗОВАТЕЛЯ:\n═══════════════════════════════════════════\n${contextText}`;
+    finalSystem += "\n\n═══════════════════════════════════════════\nКОНТЕКСТ БИЗНЕСА ПОЛЬЗОВАТЕЛЯ:\n═══════════════════════════════════════════\n" + contextText;
   }
 
   try {
-    const requestBody: any = {
+    const requestBody = {
       model: MODEL,
       max_tokens: 4000,
       system: finalSystem,
-      messages,
+      messages: messages
     };
 
-    // Включаем tools для chat-режима
     if (mode === "chat" && enableTools) {
       requestBody.tools = TOOLS;
     }
@@ -261,36 +279,46 @@ exports.handler = async function(event) {
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "anthropic-version": "2023-06-01"
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(requestBody)
     });
 
     if (!claudeRes.ok) {
       const errText = await claudeRes.text();
-      return { statusCode: claudeRes.status, headers: corsHeaders(), body: JSON.stringify({ error: "Claude API error: " + errText }) };
+      return {
+        statusCode: claudeRes.status,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Claude API error: " + errText })
+      };
     }
 
     const data = await claudeRes.json();
 
     // Парсим ответ
-    const textBlocks = data.content.filter((b: any) => b.type === "text").map((b: any) => b.text);
-    const toolUses = data.content.filter((b: any) => b.type === "tool_use");
+    const textBlocks = data.content.filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; });
+    const toolUses = data.content.filter(function(b) { return b.type === "tool_use"; });
 
     return {
       statusCode: 200,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      headers: Object.assign({}, corsHeaders(), { "Content-Type": "application/json" }),
       body: JSON.stringify({
         reply: textBlocks.join("\n\n"),
-        tool_uses: toolUses.map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          input: t.input,
-        })),
-        stop_reason: data.stop_reason, // "tool_use" если хочет вызвать инструмент
-      }),
+        tool_uses: toolUses.map(function(t) {
+          return {
+            id: t.id,
+            name: t.name,
+            input: t.input
+          };
+        }),
+        stop_reason: data.stop_reason
+      })
     };
-  } catch (err: any) {
-    return { statusCode: 500, headers: corsHeaders(), body: JSON.stringify({ error: String(err) }) };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: String(err && err.message || err) })
+    };
   }
 };
