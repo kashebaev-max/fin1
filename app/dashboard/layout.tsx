@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase-browser";
 import type { Profile } from "@/lib/types";
 import { HOME_MODULE, MODULE_GROUPS, ALL_MODULES, isModuleEnabled } from "@/lib/modules-config";
 import NotificationBell from "@/components/NotificationBell";
+import JanaraButton from "@/components/JanaraButton";
 
 const ADMIN_EMAIL = "kashebaev@gmail.com";
 const STORAGE_EXPANDED = "finerp-sidebar-expanded";
@@ -308,11 +309,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <h1 className="text-lg font-bold" style={{ letterSpacing: "-0.02em" }}>{activeModule.name}</h1>
             <div className="text-[11px] mt-0.5" style={{ color: "var(--t3)" }}>{profile?.company_name || "Организация"} • НДС 16% • МРП 4 325 ₸</div>
           </div>
-          {/* Колокольчик уведомлений */}
           <NotificationBell />
         </header>
         <div className="flex-1 overflow-auto p-6">{children}</div>
       </main>
+
+      {/* Глобальная плавающая кнопка Жанары на всех страницах */}
+      <JanaraButton />
     </div>
   );
 }
