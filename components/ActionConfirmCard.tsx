@@ -1,147 +1,179 @@
 "use client";
 
+// Карточка подтверждения AI-действия.
+// Совместима с новым интерфейсом AIAction (поля risk, category).
+// Используется как самостоятельный компонент или встроен в JanaraSidePanel.
+
 import { useState } from "react";
 import type { AIAction } from "@/lib/ai-actions";
 
-interface Props {
-  action: AIAction;
-  onConfirm: () => Promise<void>;
-  onReject: () => void;
-  executed?: boolean;
-  result?: { success: boolean; message: string } | null;
+interface ToolUseInput {
+  id: string;
+  name: string;
+  input: any;
 }
 
-const RISK_STYLES: Record<string, { color: string; label: string; emoji: string }> = {
-  low: { color: "#10B981", label: "Низкий риск", emoji: "✅" },
-  medium: { color: "#F59E0B", label: "Средний риск", emoji: "⚠" },
-  high: { color: "#EF4444", label: "Высокий риск", emoji: "🔴" },
+interface Props {
+  // Поддерживаем оба варианта вызова — старый и новый
+  action?: AIAction;           // старый стиль: передавалось целое действие
+  toolUse?: ToolUseInput;      // новый стиль: tool_use от Claude
+  parameters?: Record<string, any>; // параметры (для старого стиля)
+  onConfirm: (params?: any) => void | Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+const RISK_STYLES = {
+  low:    { bg: "#10B98115", border: "#10B981", text: "#10B981", label: "🟢 Безопасно", icon: "✓" },
+  medium: { bg: "#F59E0B15", border: "#F59E0B", text: "#F59E0B", label: "🟡 Внимание",  icon: "⚠" },
+  high:   { bg: "#EF444415", border: "#EF4444", text: "#EF4444", label: "🔴 Риск",       icon: "⚠⚠" },
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  create_journal_entry: "Бухгалтерская проводка",
-  create_invoice: "Создание счёта",
-  create_payment: "Создание платежа",
-  create_counterparty: "Добавление контрагента",
-  create_employee_payment: "Выплата сотруднику",
-  mark_paid: "Отметка об оплате",
-  dismiss_notification: "Скрытие уведомления",
-  run_depreciation: "Начисление амортизации",
-  create_recurring_payment: "Регулярный платёж",
+const CATEGORY_LABELS: Record<string, string> = {
+  "Контрагенты": "👥 Контрагенты",
+  "Номенклатура": "📦 Номенклатура",
+  "Кадры": "👤 Кадры",
+  "Бухгалтерия": "📒 Бухгалтерия",
+  "Продажи": "📋 Продажи",
+  "ОС": "🏢 Основные средства",
+  "Документы": "📝 Документы",
+  "Финансы": "💰 Финансы",
 };
 
-export default function ActionConfirmCard({ action, onConfirm, onReject, executed, result }: Props) {
-  const [confirming, setConfirming] = useState(false);
+export default function ActionConfirmCard({
+  action,
+  toolUse,
+  parameters,
+  onConfirm,
+  onCancel,
+  loading = false,
+}: Props) {
   const [doubleConfirm, setDoubleConfirm] = useState(false);
 
-  const risk = RISK_STYLES[action.riskLevel] || RISK_STYLES.medium;
-  const actionLabel = ACTION_LABELS[action.type] || action.type;
+  // Определяем источник данных: либо action, либо tool_use
+  const actionKey = action?.key || toolUse?.name || "unknown";
+  const actionName = action?.name || toolUse?.name || "Действие";
+  const actionDescription = action?.description || "";
+  const actionIcon = action?.icon || "🤖";
+  const actionCategory = action?.category || "";
+  const actionRisk = action?.risk || "medium";
+  const params = parameters || toolUse?.input || {};
+
+  const risk = RISK_STYLES[actionRisk] || RISK_STYLES.medium;
+  const categoryLabel = CATEGORY_LABELS[actionCategory] || actionCategory;
+
+  // Преобразуем параметры в человекочитаемый список
+  const paramsList = Object.entries(params).map(([key, val]) => {
+    const paramDef = action?.params?.find(p => p.name === key);
+    return {
+      label: paramDef?.description || key,
+      value: typeof val === "number" ? val.toLocaleString("ru-RU") : String(val ?? ""),
+    };
+  });
 
   async function handleConfirm() {
-    if (action.riskLevel === "high" && !doubleConfirm) {
+    if (actionRisk === "high" && !doubleConfirm) {
       setDoubleConfirm(true);
       return;
     }
-    setConfirming(true);
-    await onConfirm();
-    setConfirming(false);
-  }
-
-  // Если уже выполнено — показываем результат
-  if (executed && result) {
-    return (
-      <div className="rounded-xl p-3" style={{
-        background: result.success ? "#10B98115" : "#EF444415",
-        border: `1px solid ${result.success ? "#10B98140" : "#EF444440"}`,
-        borderLeft: `3px solid ${result.success ? "#10B981" : "#EF4444"}`,
-      }}>
-        <div className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: result.success ? "#10B981" : "#EF4444" }}>
-          <span>{result.success ? "✅" : "❌"}</span>
-          <span>{result.message}</span>
-        </div>
-      </div>
-    );
+    await onConfirm(params);
   }
 
   return (
-    <div className="rounded-xl p-3 my-2" style={{
+    <div style={{
       background: "var(--card)",
-      border: `1px solid ${risk.color}40`,
-      borderLeft: `3px solid ${risk.color}`,
+      border: `1px solid ${risk.border}40`,
+      borderLeft: `3px solid ${risk.border}`,
+      borderRadius: 10,
+      padding: 12,
+      marginTop: 8,
     }}>
-      <div className="flex items-center gap-2 mb-2">
-        <span style={{ fontSize: 14 }}>{risk.emoji}</span>
-        <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: risk.color }}>
-            ✦ Жанара предлагает действие
-          </div>
-          <div className="text-[10px]" style={{ color: "var(--t3)" }}>
-            {actionLabel} · {risk.label}
-          </div>
+      {/* Шапка */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 22 }}>{actionIcon}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{actionName}</div>
+          {actionDescription && (
+            <div style={{ fontSize: 10, color: "var(--t3)" }}>{actionDescription}</div>
+          )}
+          {categoryLabel && (
+            <div style={{ fontSize: 9, color: "var(--t3)", marginTop: 2 }}>{categoryLabel}</div>
+          )}
         </div>
+        <span style={{
+          fontSize: 9, fontWeight: 600,
+          padding: "3px 7px", borderRadius: 4,
+          background: risk.bg, color: risk.text,
+        }}>
+          {risk.label}
+        </span>
       </div>
 
-      <div className="text-[12px] mb-2.5" style={{ color: "var(--t1)", lineHeight: 1.5 }}>
-        {action.description}
-      </div>
-
-      {/* Раскрываемые детали */}
-      <details style={{ marginBottom: 10 }}>
-        <summary className="cursor-pointer text-[10px]" style={{ color: "var(--t3)" }}>
-          Показать данные →
-        </summary>
-        <pre style={{
-          marginTop: 6,
-          padding: 8,
+      {/* Параметры */}
+      {paramsList.length > 0 && (
+        <div style={{
           background: "var(--bg)",
           borderRadius: 6,
-          fontSize: 10,
-          overflow: "auto",
-          maxHeight: 200,
+          padding: 8,
+          fontSize: 11,
           color: "var(--t2)",
-          fontFamily: "monospace",
-          whiteSpace: "pre-wrap",
-        }}>{JSON.stringify(action.payload, null, 2)}</pre>
-      </details>
-
-      {doubleConfirm && action.riskLevel === "high" && (
-        <div className="rounded-lg p-2 mb-2" style={{ background: "#EF444420", border: "1px solid #EF444460" }}>
-          <div className="text-[11px] font-bold mb-1" style={{ color: "#EF4444" }}>⚠ Высокий риск</div>
-          <div className="text-[10px]" style={{ color: "var(--t2)" }}>
-            Это действие может затронуть много данных или существенно повлиять на учёт. Точно подтверждаете?
-          </div>
+          marginBottom: 8,
+        }}>
+          {paramsList.map((p, idx) => (
+            <div key={idx} style={{
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "3px 0",
+              borderBottom: idx < paramsList.length - 1 ? "1px solid var(--brd)" : "none",
+            }}>
+              <span style={{ color: "var(--t3)" }}>{p.label}:</span>
+              <span style={{ fontWeight: 600, marginLeft: 8, textAlign: "right", wordBreak: "break-all" }}>
+                {p.value}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
-      <div className="flex gap-2">
-        <button
-          onClick={handleConfirm}
-          disabled={confirming}
-          className="cursor-pointer border-none rounded-lg flex-1 font-semibold"
+      {/* Двойное подтверждение для high-risk */}
+      {actionRisk === "high" && doubleConfirm && (
+        <div style={{
+          background: "#EF444415",
+          border: "1px solid #EF444440",
+          borderRadius: 6,
+          padding: 8,
+          fontSize: 11,
+          color: "#EF4444",
+          marginBottom: 8,
+          fontWeight: 600,
+        }}>
+          ⚠⚠ Это действие с высоким риском. Подтвердите ещё раз.
+        </div>
+      )}
+
+      {/* Кнопки */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={handleConfirm} disabled={loading}
           style={{
-            padding: "7px 12px",
-            background: doubleConfirm ? "#EF4444" : risk.color,
-            color: "#fff",
-            fontSize: 11,
-            opacity: confirming ? 0.5 : 1,
+            flex: 1, padding: "8px", borderRadius: 8, border: "none",
+            background: actionRisk === "high" && doubleConfirm
+              ? "linear-gradient(135deg, #EF4444, #DC2626)"
+              : "linear-gradient(135deg, #10B981, #059669)",
+            color: "#fff", fontSize: 12, fontWeight: 700,
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.5 : 1,
           }}>
-          {confirming
-            ? "Выполняю..."
-            : doubleConfirm
-              ? "🔴 ДА, ТОЧНО ВЫПОЛНИТЬ"
-              : "✓ Подтвердить и выполнить"}
+          {loading ? "..." : actionRisk === "high" && doubleConfirm ? "✓✓ Точно выполнить" : "✓ Выполнить"}
         </button>
-        <button
-          onClick={onReject}
-          disabled={confirming}
-          className="cursor-pointer border-none rounded-lg"
+        <button onClick={onCancel} disabled={loading}
           style={{
-            padding: "7px 12px",
-            background: "transparent",
-            color: "var(--t3)",
-            fontSize: 11,
-            border: "1px solid var(--brd)",
+            flex: 1, padding: "8px", borderRadius: 8,
+            background: "var(--card)", border: "1px solid var(--brd)",
+            color: "var(--t2)", fontSize: 12, fontWeight: 600,
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.5 : 1,
           }}>
-          Отмена
+          ✗ Отменить
         </button>
       </div>
     </div>
