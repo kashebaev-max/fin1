@@ -194,6 +194,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
     color: "#6B7280",
     description: "Системные настройки",
     items: [
+      { key: "help", name: "Справочный центр", icon: "📚", path: "/dashboard/help", description: "Подробные инструкции по работе с системой" },
       { key: "companies", name: "Организации", icon: "🏢", path: "/dashboard/companies", description: "Справочник фирм", required: true },
       { key: "settings", name: "Настройки", icon: "⚙", path: "/dashboard/settings", description: "Настройки профиля и системы", required: true },
       { key: "admin", name: "Админ-панель", icon: "🛡", path: "/dashboard/admin", adminOnly: true, description: "Управление пользователями (только админ)" },
