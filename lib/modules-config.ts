@@ -151,6 +151,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
     color: "#14B8A6",
     description: "Бюджет, управленческие отчёты, календарь",
     items: [
+      { key: "analytics-charts", name: "Графики и аналитика", icon: "📊", path: "/dashboard/analytics-charts", description: "Визуализация всех ключевых показателей" },
       { key: "budgeting", name: "Бюджет", icon: "📊", path: "/dashboard/budgeting", description: "Бюджет доходов и расходов" },
       { key: "management-reports", name: "Управленческие отчёты", icon: "📈", path: "/dashboard/management-reports", description: "Cash flow, P&L, KPI" },
       { key: "calendar", name: "Календарь", icon: "📅", path: "/dashboard/calendar", description: "События, встречи, дедлайны" },
