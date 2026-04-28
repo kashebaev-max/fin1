@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { collectBusinessContext, contextToText, BusinessContext } from "@/lib/ai-context";
 import { getModuleContext } from "@/lib/module-contexts";
+import { parseActionFromReply, executeAction, logProposed, logExecuted, logRejected, type AIAction } from "@/lib/ai-actions";
+import ActionConfirmCard from "./ActionConfirmCard";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  action?: AIAction | null;
+  actionLogId?: string | null;
+  actionExecuted?: boolean;
+  actionResult?: { success: boolean; message: string } | null;
 }
 
 interface Props {
@@ -33,7 +39,6 @@ export default function JanaraSidePanel({ onClose, moduleKey }: Props) {
 
   useEffect(() => {
     init();
-    // ESC для закрытия
     const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
@@ -48,10 +53,9 @@ export default function JanaraSidePanel({ onClose, moduleKey }: Props) {
     if (!user) return;
     setUserId(user.id);
 
-    // Стартовое приветствие — учитывает модуль
     const greeting = moduleCtx
-      ? `Здравствуйте! Я вижу, что вы сейчас в модуле «${moduleCtx.name}». ${moduleCtx.expertise.split(",")[0]}. Чем могу помочь?`
-      : "Здравствуйте! Чем могу помочь?";
+      ? `Здравствуйте! Я вижу, что вы сейчас в модуле «${moduleCtx.name}». ${moduleCtx.expertise.split(",")[0]}. Чем могу помочь? Я также могу выполнить действие — попросите создать проводку, контрагента или платёж.`
+      : "Здравствуйте! Чем могу помочь? Я могу не только подсказать, но и выполнить действие — создать проводку, добавить контрагента, и т.д.";
 
     setMessages([{
       role: "assistant",
@@ -59,7 +63,6 @@ export default function JanaraSidePanel({ onClose, moduleKey }: Props) {
       timestamp: new Date(),
     }]);
 
-    // Собираем контекст бизнеса в фоне
     try {
       const ctx = await collectBusinessContext(supabase, user.id);
       setBusinessContext(ctx);
@@ -84,7 +87,6 @@ export default function JanaraSidePanel({ onClose, moduleKey }: Props) {
       setBusinessContext(ctx);
     }
 
-    // Усиливаем контекст инфой про текущий модуль
     let ctxText = contextToText(ctx);
     if (moduleCtx) {
       ctxText = `=== ТЕКУЩИЙ МОДУЛЬ ПОЛЬЗОВАТЕЛЯ: ${moduleCtx.name} ===
@@ -96,7 +98,6 @@ ${moduleCtx.description}
 ${ctxText}`;
     }
 
-    // Сохраняем сообщение
     await supabase.from("ai_conversations").insert({
       user_id: userId,
       session_id: sessionId,
@@ -128,7 +129,24 @@ ${ctxText}`;
 
       const data = await res.json();
       const reply = data.reply || "Извините, не получила ответ.";
-      const assistantMsg: Message = { role: "assistant", content: reply, timestamp: new Date() };
+
+      // Парсим действие если есть
+      const { textBefore, action } = parseActionFromReply(reply);
+      const messageContent = textBefore || reply;
+
+      let actionLogId: string | null = null;
+      if (action) {
+        actionLogId = await logProposed(supabase, userId, userText, action, moduleKey);
+      }
+
+      const assistantMsg: Message = {
+        role: "assistant",
+        content: messageContent,
+        timestamp: new Date(),
+        action: action || null,
+        actionLogId,
+        actionExecuted: false,
+      };
       setMessages(prev => [...prev, assistantMsg]);
 
       await supabase.from("ai_conversations").insert({
@@ -150,42 +168,44 @@ ${ctxText}`;
     }
   }
 
+  async function confirmAction(idx: number) {
+    const msg = messages[idx];
+    if (!msg.action) return;
+    const result = await executeAction(supabase, userId, msg.action);
+
+    if (msg.actionLogId) await logExecuted(supabase, msg.actionLogId, result);
+
+    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, actionExecuted: true, actionResult: result } : m));
+
+    // Обновим контекст после успешного действия
+    if (result.success) {
+      try {
+        const ctx = await collectBusinessContext(supabase, userId);
+        setBusinessContext(ctx);
+      } catch {}
+    }
+  }
+
+  async function rejectAction(idx: number) {
+    const msg = messages[idx];
+    if (msg.actionLogId) await logRejected(supabase, msg.actionLogId);
+    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, action: null, actionExecuted: false } : m));
+  }
+
   return (
     <>
-      {/* Затемнение */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.4)",
-          zIndex: 50,
-          backdropFilter: "blur(2px)",
-        }}
-      />
+      <div onClick={onClose}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 50, backdropFilter: "blur(2px)" }} />
 
-      {/* Панель */}
       <div style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: 480,
-        maxWidth: "95vw",
-        background: "var(--card)",
-        borderLeft: "1px solid var(--brd)",
+        position: "fixed", top: 0, right: 0, bottom: 0,
+        width: 480, maxWidth: "95vw",
+        background: "var(--card)", borderLeft: "1px solid var(--brd)",
         boxShadow: "-10px 0 40px rgba(0,0,0,0.3)",
-        zIndex: 51,
-        display: "flex",
-        flexDirection: "column",
+        zIndex: 51, display: "flex", flexDirection: "column",
       }}>
         {/* Шапка */}
-        <div style={{
-          padding: "16px 18px",
-          borderBottom: "1px solid var(--brd)",
-          background: "linear-gradient(135deg, #A855F7, #6366F1)",
-          color: "#fff",
-        }}>
+        <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--brd)", background: "linear-gradient(135deg, #A855F7, #6366F1)", color: "#fff" }}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <span style={{ fontSize: 22 }}>✦</span>
@@ -196,14 +216,11 @@ ${ctxText}`;
                 </div>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="cursor-pointer border-none bg-transparent"
-              style={{ color: "#fff", fontSize: 22, padding: 4, lineHeight: 1 }}
-              title="Закрыть (ESC)">×</button>
+            <button onClick={onClose} className="cursor-pointer border-none bg-transparent"
+              style={{ color: "#fff", fontSize: 22, padding: 4, lineHeight: 1 }} title="Закрыть (ESC)">×</button>
           </div>
           <div style={{ fontSize: 10, opacity: 0.85 }}>
-            {contextReady ? "🟢 Вижу состояние бизнеса" : "🔄 Изучаю данные..."}
+            {contextReady ? "🟢 Вижу состояние · могу выполнять действия" : "🔄 Изучаю данные..."}
           </div>
         </div>
 
@@ -211,24 +228,37 @@ ${ctxText}`;
         <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
           <div className="flex flex-col gap-2.5">
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className="rounded-xl"
-                  style={{
-                    maxWidth: "88%",
-                    padding: "8px 12px",
-                    background: m.role === "user" ? "var(--accent)" : "var(--bg)",
-                    color: m.role === "user" ? "#fff" : "var(--t1)",
-                    border: m.role === "user" ? "none" : "1px solid var(--brd)",
-                  }}>
-                  {m.role === "assistant" && (
-                    <div className="flex items-center gap-1 mb-1" style={{ fontSize: 9, color: "#A855F7", fontWeight: 700 }}>
-                      <span>✦ ЖАНАРА</span>
-                      <span style={{ color: "var(--t3)", fontWeight: 400, marginLeft: 4 }}>{m.timestamp.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</span>
-                    </div>
-                  )}
-                  <div style={{ fontSize: 12, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{m.content}</div>
+              <div key={i}>
+                <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className="rounded-xl"
+                    style={{
+                      maxWidth: "88%", padding: "8px 12px",
+                      background: m.role === "user" ? "var(--accent)" : "var(--bg)",
+                      color: m.role === "user" ? "#fff" : "var(--t1)",
+                      border: m.role === "user" ? "none" : "1px solid var(--brd)",
+                    }}>
+                    {m.role === "assistant" && (
+                      <div className="flex items-center gap-1 mb-1" style={{ fontSize: 9, color: "#A855F7", fontWeight: 700 }}>
+                        <span>✦ ЖАНАРА</span>
+                        <span style={{ color: "var(--t3)", fontWeight: 400, marginLeft: 4 }}>
+                          {m.timestamp.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 12, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{m.content}</div>
+                  </div>
                 </div>
+
+                {/* Карточка действия */}
+                {m.action && (
+                  <ActionConfirmCard
+                    action={m.action}
+                    onConfirm={() => confirmAction(i)}
+                    onReject={() => rejectAction(i)}
+                    executed={m.actionExecuted}
+                    result={m.actionResult}
+                  />
+                )}
               </div>
             ))}
             {loading && (
@@ -242,7 +272,7 @@ ${ctxText}`;
           </div>
         </div>
 
-        {/* Быстрые подсказки (только при пустом чате) */}
+        {/* Быстрые подсказки */}
         {messages.length <= 1 && moduleCtx && moduleCtx.commonQuestions.length > 0 && (
           <div style={{ padding: "10px 16px", borderTop: "1px solid var(--brd)", background: "var(--bg)" }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: "var(--t3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
@@ -250,10 +280,7 @@ ${ctxText}`;
             </div>
             <div className="flex flex-col gap-1">
               {moduleCtx.commonQuestions.map((q, i) => (
-                <button
-                  key={i}
-                  onClick={() => sendMessage(q)}
-                  disabled={loading}
+                <button key={i} onClick={() => sendMessage(q)} disabled={loading}
                   className="rounded-lg cursor-pointer border-none text-left"
                   style={{ padding: "6px 10px", background: "var(--card)", border: "1px solid var(--brd)", fontSize: 11, color: "var(--t2)" }}>
                   {q}
@@ -269,24 +296,20 @@ ${ctxText}`;
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder="Спросите Жанару..."
+            placeholder="Спросите или попросите выполнить..."
             disabled={loading}
             autoFocus
             style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--brd)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--t1)" }}
           />
-          <button
-            onClick={() => sendMessage()}
-            disabled={loading || !input.trim()}
+          <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
             className="cursor-pointer border-none rounded-lg"
             style={{ padding: "8px 14px", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, opacity: loading || !input.trim() ? 0.5 : 1 }}>
             →
           </button>
         </div>
 
-        {/* Футер */}
         <div style={{ padding: "8px 14px", borderTop: "1px solid var(--brd)", textAlign: "center", background: "var(--bg)" }}>
-          <button
-            onClick={() => { onClose(); router.push("/dashboard/ai"); }}
+          <button onClick={() => { onClose(); router.push("/dashboard/ai"); }}
             className="cursor-pointer border-none bg-transparent"
             style={{ color: "var(--accent)", fontSize: 10 }}>
             Открыть полный чат с историей →
