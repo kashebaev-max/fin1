@@ -144,6 +144,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
       { key: "workflow", name: "Документооборот", icon: "🛤", path: "/dashboard/workflow", description: "Маршруты согласования" },
       { key: "exports", name: "Экспорт отчётов", icon: "📤", path: "/dashboard/exports", description: "Скачивание отчётов в Excel и PDF" },
       { key: "doc-generator", name: "Генератор документов", icon: "📝", path: "/dashboard/doc-generator", description: "AI-генерация договоров, актов, счетов" },
+      { key: "sono", name: "СОНО (подача ФНО)", icon: "📤", path: "/dashboard/sono", description: "Расчёт ФНО и генерация XML для КГД" },
     ],
   },
   {
