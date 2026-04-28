@@ -1,358 +1,555 @@
-// AI-actions: интерпретатор и исполнитель действий Жанары.
-// Получает структурированное "намерение" от AI, показывает пользователю
-// карточку подтверждения, и при подтверждении — выполняет.
+// Полный реестр AI-действий с реальной логикой выполнения.
+// Каждое действие = 4 части:
+//   1. Описание действия (для AI и пользователя)
+//   2. Параметры с валидацией
+//   3. Уровень риска
+//   4. Функция-выполнитель (executor) — реально создаёт данные в БД
 
-import { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-// ═══ ТИПЫ ДЕЙСТВИЙ ═══
+export type RiskLevel = "low" | "medium" | "high";
 
-export type ActionType =
-  | "create_journal_entry"
-  | "create_invoice"
-  | "create_payment"
-  | "create_counterparty"
-  | "create_employee_payment"
-  | "mark_paid"
-  | "dismiss_notification"
-  | "run_depreciation"
-  | "create_recurring_payment";
+export interface AIActionParam {
+  name: string;
+  type: "string" | "number" | "date" | "boolean" | "enum";
+  required: boolean;
+  description: string;
+  enum_values?: string[];
+  default?: any;
+}
 
 export interface AIAction {
-  type: ActionType;
-  description: string; // Человекочитаемое описание для подтверждения
-  payload: any; // Параметры действия
-  riskLevel: "low" | "medium" | "high"; // low = автоматически можно, high = двойное подтверждение
+  key: string;
+  category: string;
+  icon: string;
+  name: string;
+  description: string;
+  risk: RiskLevel;
+  params: AIActionParam[];
+  // Описание для AI — что эта функция делает
+  ai_description: string;
+  // Функция выполнения — принимает supabase, userId и параметры
+  executor: (supabase: SupabaseClient, userId: string, params: any) => Promise<{
+    success: boolean;
+    message: string;
+    data?: any;
+  }>;
 }
 
-// ═══ ОПИСАНИЯ ДЕЙСТВИЙ (для system prompt) ═══
+// ═══════════════════════════════════════════
+// УТИЛИТЫ
+// ═══════════════════════════════════════════
 
-export const ACTION_DEFINITIONS = `
-ДОСТУПНЫЕ ДЕЙСТВИЯ (только эти, никаких других):
-
-1. create_journal_entry — создать бухгалтерскую проводку
-   payload: {
-     entry_date: "YYYY-MM-DD",
-     debit_account: "1010",  // номер счёта
-     credit_account: "5010",
-     amount: 100000,
-     description: "Внесение уставного капитала",
-     doc_ref: "опц"  // ссылка на документ
-   }
-
-2. create_counterparty — добавить контрагента
-   payload: {
-     name: "ТОО Альфа",
-     bin: "120340000000",  // 12 цифр или null
-     counterparty_type: "client" | "supplier" | "both",
-     phone: "опц",
-     email: "опц",
-     address: "опц"
-   }
-
-3. create_recurring_payment — добавить регулярный платёж
-   payload: {
-     description: "Аренда офиса",
-     counterparty_name: "ТОО Арендодатель",
-     amount: 250000,
-     scheduled_date: "YYYY-MM-DD",
-     payment_type: "outgoing" | "incoming"
-   }
-
-4. mark_paid — отметить платёж/счёт как оплаченный
-   payload: {
-     entity_type: "invoice" | "payment_schedule",
-     entity_id: "uuid",
-     payment_method: "cash" | "bank",
-     paid_date: "YYYY-MM-DD"
-   }
-
-5. run_depreciation — запустить начисление амортизации за месяц
-   payload: {
-     period_month: 1-12,
-     period_year: 2026
-   }
-
-6. dismiss_notification — отметить уведомление прочитанным/скрытым
-   payload: {
-     notification_id: "uuid",
-     dismiss: true | false
-   }
-
-ВАЖНО:
-- Если пользователь просит что-то, чего нет в этом списке — отвечай в чате обычным образом, не предлагай действие
-- Числа в payload — это число (number), без кавычек, без пробелов, без символа ₸
-- Даты — строго формат YYYY-MM-DD
-- Если данных недостаточно (например, не указана сумма) — задай уточняющий вопрос в обычном чате, не возвращай действие
-- Не выдумывай данные — используй то что в контексте бизнеса или то что пользователь сказал
-
-ФОРМАТ ОТВЕТА КОГДА ЕСТЬ ДЕЙСТВИЕ:
-В конце своего обычного текстового ответа добавь блок:
-
-\`\`\`action
-{
-  "type": "create_journal_entry",
-  "description": "Создать проводку Дт 1010 Кт 5010 на 100 000 ₸ — внесение уставного капитала",
-  "payload": { ... },
-  "riskLevel": "low"
-}
-\`\`\`
-
-Только ОДИН блок на ответ. Не предлагай несколько действий за раз.
-
-riskLevel:
-- low: добавление контрагента, простая проводка <100 000 ₸
-- medium: проводка 100k-1M, отметка оплаты, регулярный платёж
-- high: проводка >1M, амортизация, массовые операции
-`;
-
-// ═══ ПАРСИНГ ДЕЙСТВИЯ ИЗ ОТВЕТА AI ═══
-
-export function parseActionFromReply(reply: string): { textBefore: string; action: AIAction | null } {
-  // Ищем блок ```action ... ``` в ответе
-  const actionMatch = reply.match(/```action\s*([\s\S]+?)\s*```/);
-  if (!actionMatch) return { textBefore: reply, action: null };
-
-  const textBefore = reply.slice(0, actionMatch.index).trim();
-  try {
-    const action = JSON.parse(actionMatch[1].trim()) as AIAction;
-    // Базовая валидация
-    if (!action.type || !action.description || !action.payload) {
-      return { textBefore: reply, action: null };
-    }
-    if (!action.riskLevel) action.riskLevel = "medium";
-    return { textBefore, action };
-  } catch {
-    return { textBefore: reply, action: null };
-  }
+function todayDate(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
-// ═══ ИСПОЛНИТЕЛЬ ДЕЙСТВИЙ ═══
-
-export interface ExecutionResult {
-  success: boolean;
-  message: string;
-  data?: any;
-  entityType?: string;
-  entityId?: string;
-}
-
-export async function executeAction(
+async function logAction(
   supabase: SupabaseClient,
   userId: string,
-  action: AIAction
-): Promise<ExecutionResult> {
-  try {
-    switch (action.type) {
-      case "create_journal_entry":
-        return await executeJournalEntry(supabase, userId, action.payload);
-
-      case "create_counterparty":
-        return await executeCreateCounterparty(supabase, userId, action.payload);
-
-      case "create_recurring_payment":
-        return await executeCreateRecurringPayment(supabase, userId, action.payload);
-
-      case "mark_paid":
-        return await executeMarkPaid(supabase, userId, action.payload);
-
-      case "run_depreciation":
-        return await executeRunDepreciation(supabase, userId, action.payload);
-
-      case "dismiss_notification":
-        return await executeDismissNotification(supabase, userId, action.payload);
-
-      default:
-        return { success: false, message: `Неподдерживаемый тип действия: ${action.type}` };
-    }
-  } catch (err: any) {
-    return { success: false, message: `Ошибка выполнения: ${err.message || err}` };
-  }
-}
-
-// ═══ КОНКРЕТНЫЕ ИСПОЛНИТЕЛИ ═══
-
-async function executeJournalEntry(supabase: SupabaseClient, userId: string, p: any): Promise<ExecutionResult> {
-  if (!p.entry_date || !p.debit_account || !p.credit_account || !p.amount) {
-    return { success: false, message: "Не хватает обязательных полей: дата, Дт, Кт, сумма" };
-  }
-  const { data, error } = await supabase.from("journal_entries").insert({
-    user_id: userId,
-    entry_date: p.entry_date,
-    debit_account: String(p.debit_account),
-    credit_account: String(p.credit_account),
-    amount: Number(p.amount),
-    description: p.description || null,
-    doc_ref: p.doc_ref || null,
-  }).select().single();
-
-  if (error) return { success: false, message: error.message };
-  return {
-    success: true,
-    message: `✅ Создана проводка Дт ${p.debit_account} Кт ${p.credit_account} на ${Number(p.amount).toLocaleString("ru-RU")} ₸`,
-    entityType: "journal_entry",
-    entityId: data.id,
-  };
-}
-
-async function executeCreateCounterparty(supabase: SupabaseClient, userId: string, p: any): Promise<ExecutionResult> {
-  if (!p.name) return { success: false, message: "Не указано наименование" };
-
-  const { data, error } = await supabase.from("counterparties").insert({
-    user_id: userId,
-    name: p.name,
-    bin: p.bin || null,
-    counterparty_type: p.counterparty_type || "client",
-    phone: p.phone || null,
-    email: p.email || null,
-    address: p.address || null,
-    is_active: true,
-  }).select().single();
-
-  if (error) return { success: false, message: error.message };
-  return {
-    success: true,
-    message: `✅ Контрагент «${p.name}» добавлен`,
-    entityType: "counterparty",
-    entityId: data.id,
-  };
-}
-
-async function executeCreateRecurringPayment(supabase: SupabaseClient, userId: string, p: any): Promise<ExecutionResult> {
-  if (!p.description || !p.amount || !p.scheduled_date) {
-    return { success: false, message: "Не хватает: описание, сумма, дата" };
-  }
-  const { data, error } = await supabase.from("payment_schedules").insert({
-    user_id: userId,
-    description: p.description,
-    counterparty_name: p.counterparty_name || null,
-    amount: Number(p.amount),
-    scheduled_date: p.scheduled_date,
-    payment_type: p.payment_type || "outgoing",
-    status: "pending",
-  }).select().single();
-
-  if (error) return { success: false, message: error.message };
-  return {
-    success: true,
-    message: `✅ Платёж «${p.description}» на ${Number(p.amount).toLocaleString("ru-RU")} ₸ запланирован на ${p.scheduled_date}`,
-    entityType: "payment_schedule",
-    entityId: data.id,
-  };
-}
-
-async function executeMarkPaid(supabase: SupabaseClient, userId: string, p: any): Promise<ExecutionResult> {
-  if (!p.entity_id || !p.entity_type) {
-    return { success: false, message: "Не указано что отмечать" };
-  }
-  const today = p.paid_date || new Date().toISOString().slice(0, 10);
-
-  if (p.entity_type === "payment_schedule") {
-    const { error } = await supabase.from("payment_schedules").update({
-      status: "paid",
-      paid_date: today,
-      paid_method: p.payment_method || "bank",
-    }).eq("id", p.entity_id).eq("user_id", userId);
-    if (error) return { success: false, message: error.message };
-    return { success: true, message: `✅ Платёж отмечен оплаченным`, entityType: "payment_schedule", entityId: p.entity_id };
-  }
-
-  return { success: false, message: `Неподдерживаемый тип сущности: ${p.entity_type}` };
-}
-
-async function executeRunDepreciation(supabase: SupabaseClient, userId: string, p: any): Promise<ExecutionResult> {
-  const { data: assets } = await supabase.from("fixed_assets")
-    .select("*").eq("user_id", userId).eq("is_active", true);
-  if (!assets || assets.length === 0) return { success: true, message: "Нет активных ОС для амортизации" };
-
-  let processed = 0;
-  let totalDep = 0;
-  const today = new Date().toISOString().slice(0, 10);
-  const month = p.period_month || new Date().getMonth() + 1;
-  const year = p.period_year || new Date().getFullYear();
-  const period = `${year}-${String(month).padStart(2, "0")}`;
-
-  for (const a of assets) {
-    const monthly = Number(a.monthly_depreciation || 0);
-    if (monthly <= 0) continue;
-    const newAcc = Number(a.accumulated_depreciation || 0) + monthly;
-    if (newAcc >= Number(a.initial_cost || 0)) continue;
-
-    await supabase.from("fixed_assets").update({
-      accumulated_depreciation: newAcc,
-      residual_value: Number(a.initial_cost) - newAcc,
-    }).eq("id", a.id);
-
-    await supabase.from("journal_entries").insert({
-      user_id: userId,
-      entry_date: today,
-      doc_ref: `Аморт-${period}`,
-      debit_account: "7210",
-      credit_account: "2420",
-      amount: monthly,
-      description: `Амортизация ОС: ${a.name}`,
-    });
-
-    totalDep += monthly;
-    processed++;
-  }
-
-  return {
-    success: true,
-    message: `✅ Начислена амортизация по ${processed} ОС за ${period} на ${totalDep.toLocaleString("ru-RU")} ₸`,
-    data: { processed, totalDep, period },
-  };
-}
-
-async function executeDismissNotification(supabase: SupabaseClient, userId: string, p: any): Promise<ExecutionResult> {
-  if (!p.notification_id) return { success: false, message: "Не указан ID уведомления" };
-  const { error } = await supabase.from("notifications")
-    .update({ is_dismissed: !!p.dismiss })
-    .eq("id", p.notification_id)
-    .eq("user_id", userId);
-  if (error) return { success: false, message: error.message };
-  return { success: true, message: p.dismiss ? "✅ Уведомление скрыто" : "✅ Уведомление возвращено" };
-}
-
-// ═══ ЛОГИРОВАНИЕ ═══
-
-export async function logProposed(
-  supabase: SupabaseClient,
-  userId: string,
-  userRequest: string,
-  action: AIAction,
-  module: string
-): Promise<string | null> {
-  const { data } = await supabase.from("ai_actions_log").insert({
-    user_id: userId,
-    action_type: action.type,
-    user_request: userRequest,
-    proposed_action: action as any,
-    triggered_from_module: module,
-    status: "proposed",
-  }).select("id").single();
-  return data?.id || null;
-}
-
-export async function logExecuted(
-  supabase: SupabaseClient,
-  logId: string,
-  result: ExecutionResult
+  actionKey: string,
+  params: any,
+  result: any
 ) {
-  await supabase.from("ai_actions_log").update({
-    status: result.success ? "executed" : "failed",
-    result_summary: result.message,
-    result_data: result.data || null,
-    error_message: result.success ? null : result.message,
-    related_entity_type: result.entityType || null,
-    related_entity_id: result.entityId || null,
-    confirmed_at: new Date().toISOString(),
-    executed_at: new Date().toISOString(),
-  }).eq("id", logId);
+  try {
+    await supabase.from("ai_actions_log").insert({
+      user_id: userId,
+      action_key: actionKey,
+      params,
+      result,
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("Failed to log AI action:", e);
+  }
 }
 
-export async function logRejected(supabase: SupabaseClient, logId: string) {
-  await supabase.from("ai_actions_log").update({
-    status: "rejected",
-    confirmed_at: new Date().toISOString(),
-  }).eq("id", logId);
+// ═══════════════════════════════════════════
+// 1. КОНТРАГЕНТЫ
+// ═══════════════════════════════════════════
+
+const createCounterparty: AIAction = {
+  key: "create_counterparty",
+  category: "Контрагенты",
+  icon: "👥",
+  name: "Создать контрагента",
+  description: "Добавляет нового клиента или поставщика в справочник",
+  risk: "low",
+  ai_description: "Use this to create a new counterparty (client or supplier) in the directory. Required: name. Optional: bin, type, address, phone, email, director_name.",
+  params: [
+    { name: "name", type: "string", required: true, description: "Наименование организации" },
+    { name: "bin", type: "string", required: false, description: "БИН/ИИН (12 цифр)" },
+    { name: "counterparty_type", type: "enum", required: false, description: "Тип контрагента", enum_values: ["client", "supplier", "both"], default: "both" },
+    { name: "address", type: "string", required: false, description: "Юридический адрес" },
+    { name: "phone", type: "string", required: false, description: "Телефон" },
+    { name: "email", type: "string", required: false, description: "Email" },
+    { name: "director_name", type: "string", required: false, description: "ФИО директора" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.name) return { success: false, message: "Не указано наименование" };
+
+    // Проверка дублей
+    const { data: existing } = await supabase
+      .from("counterparties")
+      .select("id, name")
+      .eq("user_id", userId)
+      .ilike("name", params.name)
+      .maybeSingle();
+
+    if (existing) {
+      return { success: false, message: `Контрагент «${params.name}» уже существует (ID: ${existing.id.slice(0, 8)})` };
+    }
+
+    const { data, error } = await supabase.from("counterparties").insert({
+      user_id: userId,
+      name: params.name,
+      bin: params.bin || null,
+      counterparty_type: params.counterparty_type || "both",
+      address: params.address || null,
+      phone: params.phone || null,
+      email: params.email || null,
+      director_name: params.director_name || null,
+      is_active: true,
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "create_counterparty", params, { id: data.id });
+    return { success: true, message: `✅ Контрагент «${params.name}» создан`, data };
+  },
+};
+
+// ═══════════════════════════════════════════
+// 2. НОМЕНКЛАТУРА (товары/услуги)
+// ═══════════════════════════════════════════
+
+const createNomenclature: AIAction = {
+  key: "create_nomenclature",
+  category: "Номенклатура",
+  icon: "📦",
+  name: "Создать товар/услугу",
+  description: "Добавляет товар или услугу в справочник номенклатуры",
+  risk: "low",
+  ai_description: "Use this to create a new product or service in the nomenclature catalog. Required: name. Specify type='service' for services or type='product' for goods.",
+  params: [
+    { name: "name", type: "string", required: true, description: "Наименование" },
+    { name: "code", type: "string", required: false, description: "Артикул/код" },
+    { name: "unit", type: "string", required: false, description: "Единица измерения", default: "шт" },
+    { name: "purchase_price", type: "number", required: false, description: "Цена закупки" },
+    { name: "sale_price", type: "number", required: false, description: "Цена продажи" },
+    { name: "quantity", type: "number", required: false, description: "Текущий остаток", default: 0 },
+    { name: "vat_rate", type: "number", required: false, description: "Ставка НДС (%)", default: 16 },
+    { name: "category", type: "string", required: false, description: "Категория/группа" },
+    { name: "min_stock", type: "number", required: false, description: "Минимальный остаток для уведомлений" },
+    { name: "type", type: "enum", required: false, description: "Тип: товар или услуга", enum_values: ["product", "service"], default: "product" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.name) return { success: false, message: "Не указано наименование" };
+
+    const { data: existing } = await supabase
+      .from("nomenclature")
+      .select("id, name")
+      .eq("user_id", userId)
+      .ilike("name", params.name)
+      .maybeSingle();
+
+    if (existing) {
+      return { success: false, message: `Товар/услуга «${params.name}» уже существует` };
+    }
+
+    const { data, error } = await supabase.from("nomenclature").insert({
+      user_id: userId,
+      name: params.name,
+      code: params.code || null,
+      unit: params.unit || "шт",
+      purchase_price: params.purchase_price || 0,
+      sale_price: params.sale_price || 0,
+      quantity: params.quantity || 0,
+      vat_rate: params.vat_rate ?? 16,
+      category: params.category || null,
+      min_stock: params.min_stock || 0,
+      type: params.type || "product",
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "create_nomenclature", params, { id: data.id });
+    return { success: true, message: `✅ ${params.type === "service" ? "Услуга" : "Товар"} «${params.name}» создан${params.type === "service" ? "а" : ""}`, data };
+  },
+};
+
+// ═══════════════════════════════════════════
+// 3. СОТРУДНИКИ
+// ═══════════════════════════════════════════
+
+const createEmployee: AIAction = {
+  key: "create_employee",
+  category: "Кадры",
+  icon: "👤",
+  name: "Принять сотрудника",
+  description: "Добавляет нового сотрудника в штат",
+  risk: "medium",
+  ai_description: "Use this to add a new employee to the company. Required: full_name. Recommended: iin, position, salary, hire_date.",
+  params: [
+    { name: "full_name", type: "string", required: true, description: "ФИО" },
+    { name: "iin", type: "string", required: false, description: "ИИН (12 цифр)" },
+    { name: "position", type: "string", required: false, description: "Должность" },
+    { name: "department", type: "string", required: false, description: "Подразделение" },
+    { name: "salary", type: "number", required: false, description: "Оклад" },
+    { name: "hire_date", type: "date", required: false, description: "Дата приёма" },
+    { name: "phone", type: "string", required: false, description: "Телефон" },
+    { name: "email", type: "string", required: false, description: "Email" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.full_name) return { success: false, message: "Не указано ФИО" };
+
+    // Проверка дубля по ИИН
+    if (params.iin) {
+      const { data: existing } = await supabase
+        .from("employees")
+        .select("id, full_name")
+        .eq("user_id", userId)
+        .eq("iin", params.iin)
+        .maybeSingle();
+      if (existing) {
+        return { success: false, message: `Сотрудник с ИИН ${params.iin} уже есть: «${existing.full_name}»` };
+      }
+    }
+
+    const { data, error } = await supabase.from("employees").insert({
+      user_id: userId,
+      full_name: params.full_name,
+      iin: params.iin || null,
+      position: params.position || null,
+      department: params.department || null,
+      salary: params.salary || 0,
+      hire_date: params.hire_date || todayDate(),
+      phone: params.phone || null,
+      email: params.email || null,
+      is_active: true,
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "create_employee", params, { id: data.id });
+    return { success: true, message: `✅ Сотрудник «${params.full_name}» принят на работу`, data };
+  },
+};
+
+// ═══════════════════════════════════════════
+// 4. БУХГАЛТЕРСКИЕ ПРОВОДКИ
+// ═══════════════════════════════════════════
+
+const createJournalEntry: AIAction = {
+  key: "create_journal_entry",
+  category: "Бухгалтерия",
+  icon: "📒",
+  name: "Создать проводку",
+  description: "Создаёт бухгалтерскую проводку Дебет/Кредит",
+  risk: "medium",
+  ai_description: "Create accounting journal entry. Required: entry_date, debit_account, credit_account, amount, description. Use Kazakhstan NSFO chart of accounts (1010 cash, 1030 bank, 6010 sales, 7010 cogs, etc.).",
+  params: [
+    { name: "entry_date", type: "date", required: true, description: "Дата проводки" },
+    { name: "debit_account", type: "string", required: true, description: "Счёт Дебет" },
+    { name: "credit_account", type: "string", required: true, description: "Счёт Кредит" },
+    { name: "amount", type: "number", required: true, description: "Сумма" },
+    { name: "description", type: "string", required: true, description: "Содержание операции" },
+    { name: "doc_ref", type: "string", required: false, description: "Ссылка на документ" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.entry_date || !params.debit_account || !params.credit_account || !params.amount || !params.description) {
+      return { success: false, message: "Не все обязательные поля заполнены" };
+    }
+
+    const { data, error } = await supabase.from("journal_entries").insert({
+      user_id: userId,
+      entry_date: params.entry_date,
+      debit_account: String(params.debit_account),
+      credit_account: String(params.credit_account),
+      amount: Number(params.amount),
+      description: params.description,
+      doc_ref: params.doc_ref || null,
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "create_journal_entry", params, { id: data.id });
+    return { success: true, message: `✅ Проводка создана: Дт ${params.debit_account} Кт ${params.credit_account} на ${Number(params.amount).toLocaleString("ru-RU")} ₸`, data };
+  },
+};
+
+// ═══════════════════════════════════════════
+// 5. ЗАКАЗЫ (продажи)
+// ═══════════════════════════════════════════
+
+const createOrder: AIAction = {
+  key: "create_order",
+  category: "Продажи",
+  icon: "📋",
+  name: "Создать заказ",
+  description: "Создаёт заказ на продажу клиенту",
+  risk: "medium",
+  ai_description: "Create a sales order. Required: counterparty_name (or counterparty_id), order_date, total_amount. Optional: vat_rate, description.",
+  params: [
+    { name: "counterparty_name", type: "string", required: true, description: "Наименование клиента" },
+    { name: "order_date", type: "date", required: false, description: "Дата заказа", default: "today" },
+    { name: "total_amount", type: "number", required: true, description: "Общая сумма (с НДС)" },
+    { name: "vat_rate", type: "number", required: false, description: "Ставка НДС", default: 16 },
+    { name: "description", type: "string", required: false, description: "Описание" },
+    { name: "order_number", type: "string", required: false, description: "Номер заказа" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.counterparty_name || !params.total_amount) {
+      return { success: false, message: "Укажите контрагента и сумму" };
+    }
+
+    // Ищем контрагента
+    const { data: cp } = await supabase
+      .from("counterparties")
+      .select("id, name, bin, address")
+      .eq("user_id", userId)
+      .ilike("name", `%${params.counterparty_name}%`)
+      .maybeSingle();
+
+    if (!cp) {
+      return { success: false, message: `Контрагент «${params.counterparty_name}» не найден. Сначала создайте его.` };
+    }
+
+    const orderNumber = params.order_number || `ORD-${Date.now().toString().slice(-6)}`;
+
+    const { data, error } = await supabase.from("orders").insert({
+      user_id: userId,
+      counterparty_id: cp.id,
+      order_number: orderNumber,
+      order_date: params.order_date || todayDate(),
+      total_amount: Number(params.total_amount),
+      vat_rate: params.vat_rate ?? 16,
+      description: params.description || `Реализация ${cp.name}`,
+      status: "draft",
+      client_name: cp.name,
+      client_bin: cp.bin,
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "create_order", params, { id: data.id });
+    return { success: true, message: `✅ Заказ ${orderNumber} для «${cp.name}» создан на сумму ${Number(params.total_amount).toLocaleString("ru-RU")} ₸`, data };
+  },
+};
+
+// ═══════════════════════════════════════════
+// 6. ОСНОВНЫЕ СРЕДСТВА
+// ═══════════════════════════════════════════
+
+const createFixedAsset: AIAction = {
+  key: "create_fixed_asset",
+  category: "ОС",
+  icon: "🏢",
+  name: "Создать основное средство",
+  description: "Регистрирует новое основное средство",
+  risk: "medium",
+  ai_description: "Register a new fixed asset (building, equipment, vehicle). Required: name, initial_cost. Specify category and depreciation_group (1-4).",
+  params: [
+    { name: "name", type: "string", required: true, description: "Наименование" },
+    { name: "initial_cost", type: "number", required: true, description: "Первоначальная стоимость" },
+    { name: "category", type: "string", required: false, description: "Категория" },
+    { name: "depreciation_group", type: "number", required: false, description: "Группа амортизации (1-4)", default: 4 },
+    { name: "depreciation_rate", type: "number", required: false, description: "Норма амортизации (%)" },
+    { name: "acquisition_date", type: "date", required: false, description: "Дата приобретения" },
+    { name: "tax_object_type", type: "enum", required: false, description: "Тип для налога", enum_values: ["property", "vehicle", "land", "none"], default: "none" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.name || !params.initial_cost) {
+      return { success: false, message: "Укажите наименование и стоимость" };
+    }
+
+    const groupRates = { 1: 10, 2: 25, 3: 40, 4: 15 };
+    const group = params.depreciation_group || 4;
+    const rate = params.depreciation_rate || groupRates[group as 1 | 2 | 3 | 4] || 15;
+
+    const { data, error } = await supabase.from("fixed_assets").insert({
+      user_id: userId,
+      name: params.name,
+      initial_cost: Number(params.initial_cost),
+      current_cost: Number(params.initial_cost),
+      category: params.category || null,
+      depreciation_group: group,
+      depreciation_rate: rate,
+      acquisition_date: params.acquisition_date || todayDate(),
+      tax_object_type: params.tax_object_type || "none",
+      status: "active",
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "create_fixed_asset", params, { id: data.id });
+    return { success: true, message: `✅ ОС «${params.name}» зарегистрировано на сумму ${Number(params.initial_cost).toLocaleString("ru-RU")} ₸`, data };
+  },
+};
+
+// ═══════════════════════════════════════════
+// 7. ДОКУМЕНТЫ (счета, акты, договоры)
+// ═══════════════════════════════════════════
+
+const generateDocument: AIAction = {
+  key: "generate_document",
+  category: "Документы",
+  icon: "📝",
+  name: "Сформировать документ",
+  description: "Создаёт документ (счёт, акт, договор) по шаблону",
+  risk: "low",
+  ai_description: "Generate a business document (invoice, act, contract) from template. Specify document_type and counterparty_name.",
+  params: [
+    { name: "document_type", type: "enum", required: true, description: "Тип документа", enum_values: ["invoice", "act", "contract", "delivery_note"] },
+    { name: "counterparty_name", type: "string", required: true, description: "Контрагент" },
+    { name: "title", type: "string", required: false, description: "Заголовок документа" },
+    { name: "amount", type: "number", required: false, description: "Сумма" },
+    { name: "service_description", type: "string", required: false, description: "Описание услуг/товаров" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.document_type || !params.counterparty_name) {
+      return { success: false, message: "Укажите тип документа и контрагента" };
+    }
+
+    const typeNames = {
+      invoice: "Счёт на оплату",
+      act: "Акт выполненных работ",
+      contract: "Договор",
+      delivery_note: "Накладная",
+    };
+
+    const title = params.title || `${typeNames[params.document_type as keyof typeof typeNames]} для ${params.counterparty_name}`;
+
+    const { data, error } = await supabase.from("generated_documents").insert({
+      user_id: userId,
+      template_name: typeNames[params.document_type as keyof typeof typeNames] || "Документ",
+      title,
+      final_content: `${title}\n\nКонтрагент: ${params.counterparty_name}\n${params.amount ? `Сумма: ${Number(params.amount).toLocaleString("ru-RU")} ₸\n` : ""}${params.service_description || ""}`,
+      generation_method: "ai_freeform",
+      ai_prompt: `Document type: ${params.document_type}, counterparty: ${params.counterparty_name}`,
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "generate_document", params, { id: data.id });
+    return { success: true, message: `✅ Документ «${title}» создан. Откройте Генератор документов для редактирования.`, data };
+  },
+};
+
+// ═══════════════════════════════════════════
+// 8. ПЛАТЕЖИ (банк/касса)
+// ═══════════════════════════════════════════
+
+const recordPayment: AIAction = {
+  key: "record_payment",
+  category: "Финансы",
+  icon: "💰",
+  name: "Зарегистрировать платёж",
+  description: "Регистрирует входящий или исходящий платёж + создаёт проводку",
+  risk: "medium",
+  ai_description: "Record incoming or outgoing payment. Required: payment_type (incoming/outgoing), amount, payment_date, counterparty_name. Auto-creates journal entry.",
+  params: [
+    { name: "payment_type", type: "enum", required: true, description: "Тип платежа", enum_values: ["incoming", "outgoing"] },
+    { name: "amount", type: "number", required: true, description: "Сумма" },
+    { name: "payment_date", type: "date", required: false, description: "Дата платежа" },
+    { name: "counterparty_name", type: "string", required: true, description: "Контрагент" },
+    { name: "method", type: "enum", required: false, description: "Способ", enum_values: ["bank", "cash"], default: "bank" },
+    { name: "description", type: "string", required: false, description: "Назначение платежа" },
+  ],
+  executor: async (supabase, userId, params) => {
+    if (!params.amount || !params.counterparty_name) {
+      return { success: false, message: "Укажите сумму и контрагента" };
+    }
+
+    // Определяем счета по типу
+    const isIncoming = params.payment_type === "incoming";
+    const method = params.method || "bank";
+    const moneyAccount = method === "cash" ? "1010" : "1030"; // 1010 касса / 1030 банк
+    const counterAccount = isIncoming ? "1210" : "3310"; // 1210 дебиторка / 3310 кредиторка
+
+    const { data, error } = await supabase.from("journal_entries").insert({
+      user_id: userId,
+      entry_date: params.payment_date || todayDate(),
+      debit_account: isIncoming ? moneyAccount : counterAccount,
+      credit_account: isIncoming ? counterAccount : moneyAccount,
+      amount: Number(params.amount),
+      description: params.description || `${isIncoming ? "Получено от" : "Оплачено"} ${params.counterparty_name}`,
+    }).select().single();
+
+    if (error) return { success: false, message: `Ошибка: ${error.message}` };
+
+    await logAction(supabase, userId, "record_payment", params, { id: data.id });
+
+    return {
+      success: true,
+      message: `✅ ${isIncoming ? "Поступление" : "Списание"} ${Number(params.amount).toLocaleString("ru-RU")} ₸ зарегистрировано (${method === "cash" ? "касса" : "банк"})`,
+      data,
+    };
+  },
+};
+
+// ═══════════════════════════════════════════
+// РЕЕСТР ВСЕХ ДЕЙСТВИЙ
+// ═══════════════════════════════════════════
+
+export const ALL_AI_ACTIONS: AIAction[] = [
+  createCounterparty,
+  createNomenclature,
+  createEmployee,
+  createJournalEntry,
+  createOrder,
+  createFixedAsset,
+  generateDocument,
+  recordPayment,
+];
+
+// Найти действие по ключу
+export function findAction(key: string): AIAction | null {
+  return ALL_AI_ACTIONS.find(a => a.key === key) || null;
+}
+
+// Описание всех действий для AI (передаётся в системный промпт)
+export function getActionsDescriptionForAI(): string {
+  return ALL_AI_ACTIONS.map(action => {
+    const paramsList = action.params.map(p => 
+      `${p.name}${p.required ? "*" : ""} (${p.type}${p.enum_values ? ": " + p.enum_values.join("/") : ""})`
+    ).join(", ");
+    return `- ${action.key}: ${action.ai_description}\n  Параметры: ${paramsList}`;
+  }).join("\n\n");
+}
+
+// Конвертация в формат tool_use для Anthropic API
+export function getActionsAsTools() {
+  return ALL_AI_ACTIONS.map(action => {
+    const properties: Record<string, any> = {};
+    const required: string[] = [];
+
+    for (const param of action.params) {
+      let schema: any = { description: param.description };
+      
+      if (param.type === "string" || param.type === "date") {
+        schema.type = "string";
+      } else if (param.type === "number") {
+        schema.type = "number";
+      } else if (param.type === "boolean") {
+        schema.type = "boolean";
+      } else if (param.type === "enum") {
+        schema.type = "string";
+        schema.enum = param.enum_values;
+      }
+
+      properties[param.name] = schema;
+      if (param.required) required.push(param.name);
+    }
+
+    return {
+      name: action.key,
+      description: action.ai_description,
+      input_schema: {
+        type: "object",
+        properties,
+        required,
+      },
+    };
+  });
 }

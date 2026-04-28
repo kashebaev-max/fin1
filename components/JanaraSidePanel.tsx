@@ -1,321 +1,398 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
-import { collectBusinessContext, contextToText, BusinessContext } from "@/lib/ai-context";
-import { getModuleContext } from "@/lib/module-contexts";
-import { parseActionFromReply, executeAction, logProposed, logExecuted, logRejected, type AIAction } from "@/lib/ai-actions";
-import ActionConfirmCard from "./ActionConfirmCard";
+import { executeAllTools, describeActionForUI, type ToolUse, type ToolResult } from "@/lib/ai-execute";
 
 interface Message {
   role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-  action?: AIAction | null;
-  actionLogId?: string | null;
-  actionExecuted?: boolean;
-  actionResult?: { success: boolean; message: string } | null;
+  content: string | any[]; // string для простых, array для tool_use/tool_result
+  tool_uses?: ToolUse[];   // если ассистент попросил вызвать tools
+  tool_results?: ToolResult[]; // если выполнили tools
+  pending_confirmation?: boolean; // ожидает подтверждения пользователя
 }
 
 interface Props {
+  isOpen: boolean;
   onClose: () => void;
-  moduleKey: string;
+  contextText?: string;
 }
 
-export default function JanaraSidePanel({ onClose, moduleKey }: Props) {
+const RISK_COLORS = {
+  low: { bg: "#10B98115", border: "#10B981", text: "#10B981", label: "Безопасно" },
+  medium: { bg: "#F59E0B15", border: "#F59E0B", text: "#F59E0B", label: "Внимание" },
+  high: { bg: "#EF444415", border: "#EF4444", text: "#EF4444", label: "Высокий риск" },
+};
+
+export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props) {
   const supabase = createClient();
-  const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [userId, setUserId] = useState("");
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: "assistant",
+      content: "Привет! Я Жанара, твой AI-помощник. Могу создавать контрагентов, товары, сотрудников, проводки, заказы, ОС, документы, платежи. Все действия с твоим подтверждением. Что нужно сделать?",
+    },
+  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState("");
-  const [businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
-  const [contextReady, setContextReady] = useState(false);
-  const [sessionId] = useState(() => `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const [autoApprove, setAutoApprove] = useState(false); // автоматически подтверждать low-risk
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const moduleCtx = getModuleContext(moduleKey);
-
   useEffect(() => {
-    init();
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function init() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    setUserId(user.id);
-
-    const greeting = moduleCtx
-      ? `Здравствуйте! Я вижу, что вы сейчас в модуле «${moduleCtx.name}». ${moduleCtx.expertise.split(",")[0]}. Чем могу помочь? Я также могу выполнить действие — попросите создать проводку, контрагента или платёж.`
-      : "Здравствуйте! Чем могу помочь? Я могу не только подсказать, но и выполнить действие — создать проводку, добавить контрагента, и т.д.";
-
-    setMessages([{
-      role: "assistant",
-      content: greeting,
-      timestamp: new Date(),
-    }]);
-
-    try {
-      const ctx = await collectBusinessContext(supabase, user.id);
-      setBusinessContext(ctx);
-      setContextReady(true);
-    } catch (err) {
-      console.error("Context error:", err);
-    }
-  }
-
-  async function sendMessage(text?: string) {
-    const userText = (text || input).trim();
-    if (!userText || loading) return;
-
-    const userMsg: Message = { role: "user", content: userText, timestamp: new Date() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput("");
+  async function callAPI(currentMessages: Message[]) {
     setLoading(true);
 
-    let ctx = businessContext;
-    if (!ctx) {
-      ctx = await collectBusinessContext(supabase, userId);
-      setBusinessContext(ctx);
-    }
+    // Преобразуем сообщения в формат API
+    const apiMessages = currentMessages.map(m => {
+      // Если у assistant был tool_use — передаём блоками
+      if (m.role === "assistant" && m.tool_uses && m.tool_uses.length > 0) {
+        const blocks: any[] = [];
+        if (typeof m.content === "string" && m.content) {
+          blocks.push({ type: "text", text: m.content });
+        }
+        for (const tu of m.tool_uses) {
+          blocks.push({
+            type: "tool_use",
+            id: tu.id,
+            name: tu.name,
+            input: tu.input,
+          });
+        }
+        return { role: "assistant", content: blocks };
+      }
 
-    let ctxText = contextToText(ctx);
-    if (moduleCtx) {
-      ctxText = `=== ТЕКУЩИЙ МОДУЛЬ ПОЛЬЗОВАТЕЛЯ: ${moduleCtx.name} ===
-${moduleCtx.description}
-ТВОЯ ЭКСПЕРТИЗА ЗДЕСЬ: ${moduleCtx.expertise}
-ЧТО НА ЭКРАНЕ: ${moduleCtx.dataHint}
-=== КОНЕЦ ОПИСАНИЯ МОДУЛЯ ===
+      // Если user отправляет результаты tools
+      if (m.role === "user" && m.tool_results && m.tool_results.length > 0) {
+        return {
+          role: "user",
+          content: m.tool_results.map(r => ({
+            type: "tool_result",
+            tool_use_id: r.tool_use_id,
+            content: r.content,
+          })),
+        };
+      }
 
-${ctxText}`;
-    }
-
-    await supabase.from("ai_conversations").insert({
-      user_id: userId,
-      session_id: sessionId,
-      role: "user",
-      content: userText,
-      current_module: moduleKey,
+      // Обычное сообщение
+      return { role: m.role, content: m.content as string };
     });
 
     try {
-      const apiMessages = [...messages, userMsg].map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
-
       const res = await fetch("/.netlify/functions/ai-zhanara", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "chat",
           messages: apiMessages,
-          contextText: ctxText,
+          contextText: contextText || "",
+          enableTools: true,
         }),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`AI: ${errText}`);
-      }
-
       const data = await res.json();
-      const reply = data.reply || "Извините, не получила ответ.";
 
-      // Парсим действие если есть
-      const { textBefore, action } = parseActionFromReply(reply);
-      const messageContent = textBefore || reply;
-
-      let actionLogId: string | null = null;
-      if (action) {
-        actionLogId = await logProposed(supabase, userId, userText, action, moduleKey);
+      if (data.error) {
+        setMessages(prev => [...prev, { role: "assistant", content: `❌ Ошибка: ${data.error}` }]);
+        setLoading(false);
+        return;
       }
 
       const assistantMsg: Message = {
         role: "assistant",
-        content: messageContent,
-        timestamp: new Date(),
-        action: action || null,
-        actionLogId,
-        actionExecuted: false,
+        content: data.reply || "",
+        tool_uses: data.tool_uses && data.tool_uses.length > 0 ? data.tool_uses : undefined,
+        pending_confirmation: data.tool_uses && data.tool_uses.length > 0,
       };
-      setMessages(prev => [...prev, assistantMsg]);
 
-      await supabase.from("ai_conversations").insert({
-        user_id: userId,
-        session_id: sessionId,
-        role: "assistant",
-        content: reply,
-        current_module: moduleKey,
-      });
+      const updated = [...currentMessages, assistantMsg];
+      setMessages(updated);
+
+      // Автоподтверждение для low-risk если включено
+      if (autoApprove && assistantMsg.tool_uses) {
+        const allLowRisk = assistantMsg.tool_uses.every(tu => {
+          const desc = describeActionForUI(tu);
+          return desc.risk === "low";
+        });
+        if (allLowRisk) {
+          await confirmTools(updated, updated.length - 1);
+        }
+      }
     } catch (err: any) {
-      const errorMsg: Message = {
-        role: "assistant",
-        content: `❌ Ошибка: ${err.message || err}`,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => [...prev, { role: "assistant", content: `❌ Ошибка сети: ${err.message}` }]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function confirmAction(idx: number) {
-    const msg = messages[idx];
-    if (!msg.action) return;
-    const result = await executeAction(supabase, userId, msg.action);
+  async function sendMessage() {
+    if (!input.trim() || loading) return;
 
-    if (msg.actionLogId) await logExecuted(supabase, msg.actionLogId, result);
+    const newMessages: Message[] = [
+      ...messages,
+      { role: "user", content: input.trim() },
+    ];
+    setMessages(newMessages);
+    setInput("");
 
-    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, actionExecuted: true, actionResult: result } : m));
-
-    // Обновим контекст после успешного действия
-    if (result.success) {
-      try {
-        const ctx = await collectBusinessContext(supabase, userId);
-        setBusinessContext(ctx);
-      } catch {}
-    }
+    await callAPI(newMessages);
   }
 
-  async function rejectAction(idx: number) {
-    const msg = messages[idx];
-    if (msg.actionLogId) await logRejected(supabase, msg.actionLogId);
-    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, action: null, actionExecuted: false } : m));
+  // Подтверждение и выполнение tool_use
+  async function confirmTools(currentMessages: Message[], messageIndex: number) {
+    const msg = currentMessages[messageIndex];
+    if (!msg.tool_uses || !userId) return;
+
+    setLoading(true);
+
+    // Помечаем что подтверждение получено
+    const updatedMsgs = [...currentMessages];
+    updatedMsgs[messageIndex] = { ...msg, pending_confirmation: false };
+    setMessages(updatedMsgs);
+
+    // Выполняем все tools
+    const results = await executeAllTools(supabase, userId, msg.tool_uses);
+
+    // Добавляем сообщение с результатами от пользователя (для AI)
+    const withResults: Message[] = [
+      ...updatedMsgs,
+      {
+        role: "user",
+        content: "",
+        tool_results: results,
+      },
+    ];
+    setMessages(withResults);
+
+    // Отправляем результаты обратно Жанаре чтобы она прокомментировала
+    await callAPI(withResults);
   }
+
+  // Отмена tool_use
+  function cancelTools(messageIndex: number) {
+    const msg = messages[messageIndex];
+    if (!msg.tool_uses) return;
+
+    const fakeResults: ToolResult[] = msg.tool_uses.map(tu => ({
+      tool_use_id: tu.id,
+      content: "Пользователь отменил действие",
+      success: false,
+    }));
+
+    const updated = [...messages];
+    updated[messageIndex] = { ...msg, pending_confirmation: false };
+    updated.push({
+      role: "user",
+      content: "",
+      tool_results: fakeResults,
+    });
+    setMessages(updated);
+
+    callAPI(updated);
+  }
+
+  if (!isOpen) return null;
 
   return (
-    <>
-      <div onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 50, backdropFilter: "blur(2px)" }} />
-
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0,
-        width: 480, maxWidth: "95vw",
-        background: "var(--card)", borderLeft: "1px solid var(--brd)",
-        boxShadow: "-10px 0 40px rgba(0,0,0,0.3)",
-        zIndex: 51, display: "flex", flexDirection: "column",
-      }}>
-        {/* Шапка */}
-        <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--brd)", background: "linear-gradient(135deg, #A855F7, #6366F1)", color: "#fff" }}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span style={{ fontSize: 22 }}>✦</span>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>Жанара</div>
-                <div style={{ fontSize: 10, opacity: 0.85 }}>
-                  {moduleCtx ? `Эксперт по «${moduleCtx.name}»` : "AI-консультант"}
-                </div>
-              </div>
-            </div>
-            <button onClick={onClose} className="cursor-pointer border-none bg-transparent"
-              style={{ color: "#fff", fontSize: 22, padding: 4, lineHeight: 1 }} title="Закрыть (ESC)">×</button>
-          </div>
-          <div style={{ fontSize: 10, opacity: 0.85 }}>
-            {contextReady ? "🟢 Вижу состояние · могу выполнять действия" : "🔄 Изучаю данные..."}
+    <div style={{
+      position: "fixed", top: 0, right: 0, height: "100vh", width: "min(450px, 100vw)",
+      background: "var(--bg)", borderLeft: "1px solid var(--brd)", zIndex: 1000,
+      display: "flex", flexDirection: "column", boxShadow: "-8px 0 24px rgba(0,0,0,0.1)",
+    }}>
+      {/* Шапка */}
+      <div style={{ padding: 16, borderBottom: "1px solid var(--brd)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 22 }}>✦</span>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Жанара</div>
+            <div style={{ fontSize: 10, color: "var(--t3)" }}>AI-помощник Finstat.kz</div>
           </div>
         </div>
+        <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: 22, cursor: "pointer", color: "var(--t3)" }}>×</button>
+      </div>
 
-        {/* Сообщения */}
-        <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
-          <div className="flex flex-col gap-2.5">
-            {messages.map((m, i) => (
-              <div key={i}>
-                <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className="rounded-xl"
-                    style={{
-                      maxWidth: "88%", padding: "8px 12px",
-                      background: m.role === "user" ? "var(--accent)" : "var(--bg)",
-                      color: m.role === "user" ? "#fff" : "var(--t1)",
-                      border: m.role === "user" ? "none" : "1px solid var(--brd)",
-                    }}>
-                    {m.role === "assistant" && (
-                      <div className="flex items-center gap-1 mb-1" style={{ fontSize: 9, color: "#A855F7", fontWeight: 700 }}>
-                        <span>✦ ЖАНАРА</span>
-                        <span style={{ color: "var(--t3)", fontWeight: 400, marginLeft: 4 }}>
-                          {m.timestamp.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ fontSize: 12, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{m.content}</div>
-                  </div>
-                </div>
+      {/* Опция автоподтверждения */}
+      <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--brd)", background: "var(--card)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, cursor: "pointer", color: "var(--t2)" }}>
+          <input type="checkbox" checked={autoApprove} onChange={e => setAutoApprove(e.target.checked)} />
+          Авто-подтверждать безопасные действия (создание контрагентов, товаров)
+        </label>
+      </div>
 
-                {/* Карточка действия */}
-                {m.action && (
-                  <ActionConfirmCard
-                    action={m.action}
-                    onConfirm={() => confirmAction(i)}
-                    onReject={() => rejectAction(i)}
-                    executed={m.actionExecuted}
-                    result={m.actionResult}
-                  />
-                )}
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="rounded-xl" style={{ padding: "8px 12px", background: "var(--bg)", border: "1px solid var(--brd)", fontSize: 11, color: "#A855F7" }}>
-                  ✦ Жанара думает...
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Быстрые подсказки */}
-        {messages.length <= 1 && moduleCtx && moduleCtx.commonQuestions.length > 0 && (
-          <div style={{ padding: "10px 16px", borderTop: "1px solid var(--brd)", background: "var(--bg)" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "var(--t3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              💡 Часто спрашивают
-            </div>
-            <div className="flex flex-col gap-1">
-              {moduleCtx.commonQuestions.map((q, i) => (
-                <button key={i} onClick={() => sendMessage(q)} disabled={loading}
-                  className="rounded-lg cursor-pointer border-none text-left"
-                  style={{ padding: "6px 10px", background: "var(--card)", border: "1px solid var(--brd)", fontSize: 11, color: "var(--t2)" }}>
-                  {q}
-                </button>
-              ))}
-            </div>
+      {/* Сообщения */}
+      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+        {messages.map((msg, i) => (
+          <MessageView
+            key={i}
+            message={msg}
+            messageIndex={i}
+            onConfirm={() => confirmTools(messages, i)}
+            onCancel={() => cancelTools(i)}
+          />
+        ))}
+        {loading && (
+          <div style={{ padding: 12, background: "var(--card)", borderRadius: 12, fontSize: 12, color: "var(--t3)" }}>
+            ✦ Думаю...
           </div>
         )}
+        <div ref={messagesEndRef} />
+      </div>
 
-        {/* Ввод */}
-        <div style={{ padding: "12px 14px", borderTop: "1px solid var(--brd)", display: "flex", gap: 6 }}>
-          <input
+      {/* Ввод */}
+      <div style={{ padding: 12, borderTop: "1px solid var(--brd)", background: "var(--card)" }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder="Спросите или попросите выполнить..."
-            disabled={loading}
-            autoFocus
-            style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--brd)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--t1)" }}
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            placeholder="Создай контрагента ТОО Альфа с БИН 123456789012..."
+            rows={2}
+            style={{ flex: 1, padding: "8px 10px", fontSize: 12, background: "var(--bg)", border: "1px solid var(--brd)", borderRadius: 8, color: "var(--t1)", resize: "none" }}
           />
-          <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
-            className="cursor-pointer border-none rounded-lg"
-            style={{ padding: "8px 14px", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, opacity: loading || !input.trim() ? 0.5 : 1 }}>
-            →
-          </button>
-        </div>
-
-        <div style={{ padding: "8px 14px", borderTop: "1px solid var(--brd)", textAlign: "center", background: "var(--bg)" }}>
-          <button onClick={() => { onClose(); router.push("/dashboard/ai"); }}
-            className="cursor-pointer border-none bg-transparent"
-            style={{ color: "var(--accent)", fontSize: 10 }}>
-            Открыть полный чат с историей →
+          <button onClick={sendMessage} disabled={loading || !input.trim()}
+            style={{
+              padding: "8px 16px", background: "linear-gradient(135deg, #A855F7, #6366F1)",
+              color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600,
+              opacity: loading || !input.trim() ? 0.5 : 1,
+            }}>
+            ▶
           </button>
         </div>
       </div>
-    </>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// КОМПОНЕНТ ОТОБРАЖЕНИЯ СООБЩЕНИЯ
+// ═══════════════════════════════════════════
+
+function MessageView({
+  message, messageIndex, onConfirm, onCancel,
+}: {
+  message: Message;
+  messageIndex: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const isUser = message.role === "user";
+  const hasToolResults = message.tool_results && message.tool_results.length > 0;
+
+  // Сообщение с результатами выполнения tools — показываем компактно
+  if (hasToolResults) {
+    return (
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 10, fontSize: 11 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6, color: "var(--t3)" }}>📋 Результаты:</div>
+        {message.tool_results!.map((r, i) => (
+          <div key={i} style={{
+            padding: "4px 8px", borderRadius: 6, marginBottom: 4,
+            background: r.success ? "#10B98115" : "#EF444415",
+            color: r.success ? "#059669" : "#DC2626",
+          }}>
+            {r.content}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      alignSelf: isUser ? "flex-end" : "flex-start",
+      maxWidth: "85%",
+    }}>
+      {/* Текст сообщения */}
+      {typeof message.content === "string" && message.content && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 12,
+          background: isUser ? "linear-gradient(135deg, #A855F7, #6366F1)" : "var(--card)",
+          color: isUser ? "#fff" : "var(--t1)",
+          fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-wrap",
+          border: isUser ? "none" : "1px solid var(--brd)",
+        }}>
+          {message.content}
+        </div>
+      )}
+
+      {/* Карточки tool_use с кнопками подтверждения */}
+      {message.tool_uses && message.tool_uses.length > 0 && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 10, color: "var(--t3)", fontWeight: 600 }}>
+            🤖 Жанара хочет выполнить {message.tool_uses.length} действи{message.tool_uses.length === 1 ? "е" : "я"}:
+          </div>
+
+          {message.tool_uses.map((tu, i) => {
+            const desc = describeActionForUI(tu);
+            const risk = RISK_COLORS[desc.risk];
+            return (
+              <div key={i} style={{
+                background: "var(--card)", border: `1px solid ${risk.border}40`,
+                borderLeft: `3px solid ${risk.border}`,
+                borderRadius: 10, padding: 10,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <span style={{ fontSize: 18 }}>{desc.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{desc.title}</div>
+                    <div style={{ fontSize: 10, color: "var(--t3)" }}>{desc.description}</div>
+                  </div>
+                  <span style={{
+                    fontSize: 9, fontWeight: 600,
+                    padding: "2px 6px", borderRadius: 4,
+                    background: risk.bg, color: risk.text,
+                  }}>{risk.label}</span>
+                </div>
+
+                {desc.paramsList.length > 0 && (
+                  <div style={{ background: "var(--bg)", borderRadius: 6, padding: 8, fontSize: 10, color: "var(--t2)" }}>
+                    {desc.paramsList.map((p, idx) => (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                        <span style={{ color: "var(--t3)" }}>{p.label}:</span>
+                        <span style={{ fontWeight: 600 }}>{p.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Кнопки подтверждения (показываются только если pending) */}
+          {message.pending_confirmation && (
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button onClick={onConfirm}
+                style={{
+                  flex: 1, padding: "8px", borderRadius: 8, border: "none",
+                  background: "linear-gradient(135deg, #10B981, #059669)",
+                  color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                }}>
+                ✓ Выполнить всё
+              </button>
+              <button onClick={onCancel}
+                style={{
+                  flex: 1, padding: "8px", borderRadius: 8,
+                  background: "var(--card)", border: "1px solid var(--brd)",
+                  color: "var(--t2)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                }}>
+                ✗ Отменить
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
