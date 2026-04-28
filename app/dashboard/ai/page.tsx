@@ -2,284 +2,477 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase-browser";
-import { collectBusinessContext, contextToText, BusinessContext } from "@/lib/ai-context";
+import { executeAllTools, describeActionForUI, type ToolUse, type ToolResult } from "@/lib/ai-execute";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  tool_uses?: ToolUse[];
+  tool_results?: ToolResult[];
+  pending_confirmation?: boolean;
+  timestamp?: string;
 }
 
-const QUICK_PROMPTS = [
-  { icon: "💰", text: "Как у меня с финансами сейчас?" },
-  { icon: "📊", text: "Что должен сдать в этом месяце?" },
-  { icon: "⚠️", text: "Какие у меня сейчас проблемы и риски?" },
-  { icon: "📈", text: "Как идут продажи?" },
-  { icon: "📦", text: "Что со складом и партиями?" },
-  { icon: "👥", text: "Расскажи про моих сотрудников и ЗП" },
-  { icon: "💡", text: "Что мне сделать прямо сейчас в первую очередь?" },
-  { icon: "📅", text: "Какие ближайшие дедлайны по налогам?" },
-];
+const RISK_COLORS = {
+  low:    { bg: "#10B98115", border: "#10B981", text: "#10B981", label: "Безопасно" },
+  medium: { bg: "#F59E0B15", border: "#F59E0B", text: "#F59E0B", label: "Внимание" },
+  high:   { bg: "#EF444415", border: "#EF4444", text: "#EF4444", label: "Высокий риск" },
+};
 
-export default function AIChatPage() {
+export default function AIPage() {
   const supabase = createClient();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [userId, setUserId] = useState("");
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: "assistant",
+      content: "Привет! Я Жанара ✦ — твой AI-помощник Finstat.kz.\n\nМогу реально создавать данные в системе:\n• 👥 Контрагентов\n• 📦 Товары и услуги\n• 👤 Сотрудников\n• 📒 Бухгалтерские проводки\n• 📋 Заказы\n• 🏢 Основные средства\n• 📝 Документы (счета, акты)\n• 💰 Платежи\n\nВсе действия с твоим подтверждением. Что нужно сделать?",
+      timestamp: new Date().toISOString(),
+    },
+  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [contextLoading, setContextLoading] = useState(false);
-  const [userId, setUserId] = useState("");
-  const [sessionId] = useState(() => `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-  const [businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
-  const [contextStale, setContextStale] = useState(true);
-  const [showContextPreview, setShowContextPreview] = useState(false);
-
+  const [autoApprove, setAutoApprove] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { init(); }, []);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+  }, []);
 
-  async function init() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    setUserId(user.id);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-    // Загружаем последние сообщения из истории (опционально, для непрерывности)
-    const { data } = await supabase
-      .from("ai_conversations")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (data && data.length > 0) {
-      const sorted = data.reverse().map((m: any) => ({
-        role: m.role,
-        content: m.content,
-        timestamp: new Date(m.created_at),
-      }));
-      setMessages(sorted);
-    } else {
-      // Приветствие
-      setMessages([{
-        role: "assistant",
-        content: "Здравствуйте! Я — Жанара, ваш AI-консультант по бухгалтерии и налогам РК. Я вижу состояние вашего бизнеса в реальном времени и помогу разобраться с любыми вопросами. Можете задать вопрос или выбрать одну из быстрых тем ниже.",
-        timestamp: new Date(),
-      }]);
-    }
-
-    // Сразу собираем контекст
-    refreshContext(user.id);
-  }
-
-  async function refreshContext(uid: string) {
-    setContextLoading(true);
-    try {
-      const ctx = await collectBusinessContext(supabase, uid);
-      setBusinessContext(ctx);
-      setContextStale(false);
-    } catch (err) {
-      console.error("Context collect error:", err);
-    } finally {
-      setContextLoading(false);
-    }
-  }
-
-  async function sendMessage(text?: string) {
-    const userText = (text || input).trim();
-    if (!userText || loading) return;
-
-    const userMsg: Message = { role: "user", content: userText, timestamp: new Date() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput("");
+  async function callAPI(currentMessages: Message[]) {
     setLoading(true);
 
-    // Если контекст устарел или не загружен — пересобираем
-    let ctx = businessContext;
-    if (!ctx || contextStale) {
-      ctx = await collectBusinessContext(supabase, userId);
-      setBusinessContext(ctx);
-      setContextStale(false);
-    }
-    const ctxText = contextToText(ctx);
+    // Преобразуем сообщения в формат API
+    const apiMessages = currentMessages.map(m => {
+      // assistant с tool_use — передаём блоками
+      if (m.role === "assistant" && m.tool_uses && m.tool_uses.length > 0) {
+        const blocks: any[] = [];
+        if (m.content) {
+          blocks.push({ type: "text", text: m.content });
+        }
+        for (const tu of m.tool_uses) {
+          blocks.push({
+            type: "tool_use",
+            id: tu.id,
+            name: tu.name,
+            input: tu.input,
+          });
+        }
+        return { role: "assistant", content: blocks };
+      }
 
-    // Сохраняем сообщение пользователя
-    await supabase.from("ai_conversations").insert({
-      user_id: userId,
-      session_id: sessionId,
-      role: "user",
-      content: userText,
-      business_context: ctx as any,
-      current_module: "ai",
+      // user с результатами tools
+      if (m.role === "user" && m.tool_results && m.tool_results.length > 0) {
+        return {
+          role: "user",
+          content: m.tool_results.map(r => ({
+            type: "tool_result",
+            tool_use_id: r.tool_use_id,
+            content: r.content,
+          })),
+        };
+      }
+
+      return { role: m.role, content: m.content };
     });
 
     try {
-      const apiMessages = [...messages, userMsg].map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
-
       const res = await fetch("/.netlify/functions/ai-zhanara", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "chat",
           messages: apiMessages,
-          contextText: ctxText,
+          contextText: "Главный AI-чат /dashboard/ai. Пользователь может попросить создать любые данные.",
+          enableTools: true,
         }),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`AI API error: ${errText}`);
+      const data = await res.json();
+
+      if (data.error) {
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: `❌ Ошибка: ${data.error}`,
+          timestamp: new Date().toISOString(),
+        }]);
+        setLoading(false);
+        return;
       }
 
-      const data = await res.json();
-      const assistantText = data.reply || "Извините, не получила ответ. Попробуйте ещё раз.";
-      const assistantMsg: Message = { role: "assistant", content: assistantText, timestamp: new Date() };
-      setMessages(prev => [...prev, assistantMsg]);
-
-      // Сохраняем ответ
-      await supabase.from("ai_conversations").insert({
-        user_id: userId,
-        session_id: sessionId,
+      const assistantMsg: Message = {
         role: "assistant",
-        content: assistantText,
-        current_module: "ai",
-      });
-    } catch (err: any) {
-      const errorMsg: Message = {
-        role: "assistant",
-        content: `❌ Ошибка: ${err.message || err}. Проверьте, что в Netlify задана переменная ANTHROPIC_API_KEY.`,
-        timestamp: new Date(),
+        content: data.reply || "",
+        tool_uses: data.tool_uses && data.tool_uses.length > 0 ? data.tool_uses : undefined,
+        pending_confirmation: data.tool_uses && data.tool_uses.length > 0,
+        timestamp: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, errorMsg]);
+
+      const updated = [...currentMessages, assistantMsg];
+      setMessages(updated);
+
+      // Автоподтверждение для low-risk если включено
+      if (autoApprove && assistantMsg.tool_uses) {
+        const allLowRisk = assistantMsg.tool_uses.every(tu => {
+          const desc = describeActionForUI(tu);
+          return desc.risk === "low";
+        });
+        if (allLowRisk) {
+          await confirmTools(updated, updated.length - 1);
+        }
+      }
+    } catch (err: any) {
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: `❌ Ошибка сети: ${err.message}`,
+        timestamp: new Date().toISOString(),
+      }]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function clearHistory() {
-    if (!confirm("Очистить историю диалога? Контекст бизнеса сохранится.")) return;
-    await supabase.from("ai_conversations").delete().eq("user_id", userId);
-    setMessages([{
-      role: "assistant",
-      content: "История очищена. Чем могу помочь?",
-      timestamp: new Date(),
-    }]);
+  async function sendMessage() {
+    if (!input.trim() || loading) return;
+
+    const newMessages: Message[] = [
+      ...messages,
+      {
+        role: "user",
+        content: input.trim(),
+        timestamp: new Date().toISOString(),
+      },
+    ];
+    setMessages(newMessages);
+    setInput("");
+
+    await callAPI(newMessages);
   }
 
-  return (
-    <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 140px)" }}>
+  async function confirmTools(currentMessages: Message[], messageIndex: number) {
+    const msg = currentMessages[messageIndex];
+    if (!msg.tool_uses || !userId) return;
 
-      {/* Контекст индикатор */}
-      <div className="rounded-xl p-3 flex items-center justify-between" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-        <div className="flex items-center gap-2 text-[11px]" style={{ color: "var(--t3)" }}>
-          <span style={{ fontSize: 16 }}>{contextLoading ? "🔄" : businessContext ? "🟢" : "🔴"}</span>
-          {contextLoading
-            ? "Собираю данные о вашем бизнесе..."
-            : businessContext
-              ? <>Жанара видит: касса <b>{businessContext.finance.cash.toLocaleString("ru-RU")} ₸</b> · банк <b>{businessContext.finance.bank.toLocaleString("ru-RU")} ₸</b> · выручка месяца <b>{businessContext.sales.revenueMTD.toLocaleString("ru-RU")} ₸</b> · {businessContext.hr.activeEmployees} сотрудников</>
-              : "Контекст не загружен"
-          }
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowContextPreview(!showContextPreview)}
-            className="text-[10px] cursor-pointer border-none bg-transparent"
-            style={{ color: "var(--accent)" }}>
-            {showContextPreview ? "Скрыть" : "Показать"} контекст
-          </button>
-          <button
-            onClick={() => userId && refreshContext(userId)}
-            disabled={contextLoading}
-            className="text-[10px] cursor-pointer border-none bg-transparent"
-            style={{ color: "var(--accent)" }}>
-            🔄 Обновить
-          </button>
-          <button
-            onClick={clearHistory}
-            className="text-[10px] cursor-pointer border-none bg-transparent"
-            style={{ color: "#EF4444" }}>
+    setLoading(true);
+
+    const updatedMsgs = [...currentMessages];
+    updatedMsgs[messageIndex] = { ...msg, pending_confirmation: false };
+    setMessages(updatedMsgs);
+
+    const results = await executeAllTools(supabase, userId, msg.tool_uses);
+
+    const withResults: Message[] = [
+      ...updatedMsgs,
+      {
+        role: "user",
+        content: "",
+        tool_results: results,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+    setMessages(withResults);
+
+    await callAPI(withResults);
+  }
+
+  function cancelTools(messageIndex: number) {
+    const msg = messages[messageIndex];
+    if (!msg.tool_uses) return;
+
+    const fakeResults: ToolResult[] = msg.tool_uses.map(tu => ({
+      tool_use_id: tu.id,
+      content: "Пользователь отменил действие",
+      success: false,
+    }));
+
+    const updated = [...messages];
+    updated[messageIndex] = { ...msg, pending_confirmation: false };
+    updated.push({
+      role: "user",
+      content: "",
+      tool_results: fakeResults,
+      timestamp: new Date().toISOString(),
+    });
+    setMessages(updated);
+
+    callAPI(updated);
+  }
+
+  function clearHistory() {
+    if (!confirm("Очистить историю диалога?")) return;
+    setMessages([
+      {
+        role: "assistant",
+        content: "История очищена. Начнём сначала! Что нужно сделать?",
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+  }
+
+  // Быстрые действия
+  const quickActions = [
+    { icon: "👥", label: "Создай контрагента ТОО Альфа с БИН 123456789012, тип клиент" },
+    { icon: "📦", label: "Создай 3 товара: ноутбук 350000, мышка 5000, клавиатура 12000" },
+    { icon: "👤", label: "Прими сотрудника Иванов Иван, ИИН 123456789012, должность бухгалтер, оклад 250000" },
+    { icon: "📋", label: "Создай заказ для ТОО Альфа на сумму 580000" },
+    { icon: "💰", label: "Зарегистрируй поступление 580000 от ТОО Альфа" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4 h-full" style={{ minHeight: "calc(100vh - 100px)" }}>
+
+      {/* Шапка */}
+      <div className="rounded-xl p-4" style={{ background: "linear-gradient(135deg, #A855F710, #6366F110)", border: "1px solid #A855F730" }}>
+        <div className="flex items-start gap-3">
+          <span style={{ fontSize: 32 }}>✦</span>
+          <div className="flex-1">
+            <div className="text-base font-bold mb-1">Жанара — AI-помощник Finstat.kz</div>
+            <div className="text-[12px]" style={{ color: "var(--t2)" }}>
+              На базе Claude Sonnet 4.5. Знает всё о вашем бизнесе и может выполнять действия с вашим подтверждением.
+            </div>
+          </div>
+          <button onClick={clearHistory}
+            className="cursor-pointer rounded-lg border-none text-[10px] font-semibold"
+            style={{ padding: "5px 10px", background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
             🗑 Очистить
           </button>
         </div>
       </div>
 
-      {showContextPreview && businessContext && (
-        <div className="rounded-xl p-3" style={{ background: "var(--bg)", border: "1px solid var(--brd)", maxHeight: 200, overflow: "auto" }}>
-          <pre className="text-[10px] whitespace-pre-wrap" style={{ color: "var(--t2)", fontFamily: "monospace" }}>{contextToText(businessContext)}</pre>
-        </div>
-      )}
+      {/* Авто-подтверждение */}
+      <div className="rounded-xl p-3" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+        <label className="flex items-center gap-2 text-[11px] cursor-pointer" style={{ color: "var(--t2)" }}>
+          <input type="checkbox" checked={autoApprove} onChange={e => setAutoApprove(e.target.checked)} />
+          <span>⚡ Авто-подтверждать безопасные действия (создание контрагентов, товаров, документов)</span>
+        </label>
+      </div>
 
-      {/* Сообщения */}
-      <div className="flex-1 rounded-xl p-4 overflow-y-auto" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-        <div className="flex flex-col gap-3">
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className="rounded-xl p-3"
-                style={{
-                  maxWidth: "80%",
-                  background: m.role === "user" ? "var(--accent)" : "var(--bg)",
-                  color: m.role === "user" ? "#fff" : "var(--t1)",
-                  border: m.role === "user" ? "none" : "1px solid var(--brd)",
-                }}>
-                {m.role === "assistant" && (
-                  <div className="flex items-center gap-1.5 mb-1.5 text-[10px]" style={{ color: "#A855F7", fontWeight: 700 }}>
-                    <span>✦</span>
-                    <span>ЖАНАРА</span>
-                    <span style={{ color: "var(--t3)", fontWeight: 400, marginLeft: 4 }}>{m.timestamp.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                )}
-                <div className="text-[12px]" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{m.content}</div>
-              </div>
-            </div>
+      {/* Чат */}
+      <div className="rounded-xl flex flex-col"
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--brd)",
+          flex: 1,
+          minHeight: 500,
+          maxHeight: "calc(100vh - 350px)",
+        }}>
+
+        {/* Сообщения */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          {messages.map((msg, i) => (
+            <MessageView
+              key={i}
+              message={msg}
+              messageIndex={i}
+              onConfirm={() => confirmTools(messages, i)}
+              onCancel={() => cancelTools(i)}
+            />
           ))}
           {loading && (
-            <div className="flex justify-start">
-              <div className="rounded-xl p-3" style={{ background: "var(--bg)", border: "1px solid var(--brd)" }}>
-                <div className="text-[11px]" style={{ color: "#A855F7" }}>✦ Жанара думает...</div>
-              </div>
+            <div style={{ alignSelf: "flex-start", padding: "10px 14px", background: "var(--bg)", borderRadius: 12, fontSize: 12, color: "var(--t3)" }}>
+              ✦ Думаю...
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Быстрые действия */}
+        {messages.length <= 1 && (
+          <div style={{ padding: "0 16px 12px 16px" }}>
+            <div className="text-[10px] font-bold mb-2" style={{ color: "var(--t3)" }}>💡 Быстрые примеры:</div>
+            <div className="flex gap-2 flex-wrap">
+              {quickActions.map((qa, i) => (
+                <button key={i} onClick={() => setInput(qa.label)}
+                  className="cursor-pointer rounded-lg border-none text-[10px] text-left"
+                  style={{ padding: "8px 12px", background: "var(--bg)", border: "1px solid var(--brd)", color: "var(--t2)", maxWidth: 280 }}>
+                  <span style={{ marginRight: 6 }}>{qa.icon}</span>{qa.label.slice(0, 40)}...
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Ввод */}
+        <div style={{ padding: 12, borderTop: "1px solid var(--brd)", background: "var(--bg)" }}>
+          <div className="flex gap-2">
+            <textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+              placeholder="Спросите Жанару... (Enter — отправить, Shift+Enter — новая строка)"
+              rows={2}
+              style={{ flex: 1, padding: "10px 12px", fontSize: 13, background: "var(--card)", border: "1px solid var(--brd)", borderRadius: 8, color: "var(--t1)", resize: "none" }}
+            />
+            <button onClick={sendMessage} disabled={loading || !input.trim()}
+              className="cursor-pointer rounded-lg border-none font-semibold"
+              style={{
+                padding: "10px 18px",
+                background: "linear-gradient(135deg, #A855F7, #6366F1)",
+                color: "#fff", fontSize: 13,
+                opacity: loading || !input.trim() ? 0.5 : 1,
+              }}>
+              {loading ? "..." : "Отправить ▶"}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Быстрые подсказки */}
-      {messages.length <= 1 && (
-        <div className="grid grid-cols-4 gap-2">
-          {QUICK_PROMPTS.map((p, i) => (
-            <button
-              key={i}
-              onClick={() => sendMessage(p.text)}
-              disabled={loading}
-              className="rounded-lg p-2.5 text-left cursor-pointer transition-all border-none"
-              style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-              <span style={{ fontSize: 16, marginRight: 6 }}>{p.icon}</span>
-              <span className="text-[11px]">{p.text}</span>
-            </button>
-          ))}
+      {/* Инфо */}
+      <div className="rounded-xl p-3 text-[10px]" style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)" }}>
+        💡 <b>Жанара использует tool_use API</b> — каждое действие требует подтверждения. Без вашего «✓ Выполнить» ничего не создаётся.<br/>
+        💡 <b>Авто-подтверждение</b> можно включить для массовых операций (создание контрагентов, товаров).<br/>
+        💡 Если Жанара пишет «создал», но карточка подтверждения не появилась — это <b>ошибка системы</b>, сообщите в поддержку.
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// КОМПОНЕНТ ОТОБРАЖЕНИЯ СООБЩЕНИЯ
+// ═══════════════════════════════════════════
+
+function MessageView({
+  message, messageIndex, onConfirm, onCancel,
+}: {
+  message: Message;
+  messageIndex: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const isUser = message.role === "user";
+  const hasToolResults = message.tool_results && message.tool_results.length > 0;
+  const time = message.timestamp ? new Date(message.timestamp).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "";
+
+  // Сообщение с результатами tools
+  if (hasToolResults) {
+    return (
+      <div style={{ background: "var(--bg)", borderRadius: 12, padding: 12, fontSize: 11, alignSelf: "flex-start", maxWidth: "85%" }}>
+        <div style={{ fontWeight: 600, marginBottom: 6, color: "var(--t3)", fontSize: 10 }}>📋 РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ:</div>
+        {message.tool_results!.map((r, i) => (
+          <div key={i} style={{
+            padding: "6px 10px", borderRadius: 6, marginBottom: 4,
+            background: r.success ? "#10B98115" : "#EF444415",
+            color: r.success ? "#059669" : "#DC2626",
+            fontWeight: 500,
+          }}>
+            {r.content}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      alignSelf: isUser ? "flex-end" : "flex-start",
+      maxWidth: "85%",
+      display: "flex",
+      flexDirection: "column",
+      gap: 4,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: "var(--t3)", fontWeight: 600 }}>
+        {!isUser && <span>✦ ЖАНАРА</span>}
+        <span>{time}</span>
+        {isUser && <span>ВЫ</span>}
+      </div>
+
+      {/* Текст */}
+      {message.content && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 12,
+          background: isUser ? "linear-gradient(135deg, #A855F7, #6366F1)" : "var(--bg)",
+          color: isUser ? "#fff" : "var(--t1)",
+          fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap",
+          border: isUser ? "none" : "1px solid var(--brd)",
+        }}>
+          {message.content}
         </div>
       )}
 
-      {/* Ввод */}
-      <div className="rounded-xl p-3 flex gap-2" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-          placeholder="Спросите Жанару... (Enter — отправить)"
-          disabled={loading}
-          style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--brd)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--t1)" }}
-        />
-        <button
-          onClick={() => sendMessage()}
-          disabled={loading || !input.trim()}
-          className="px-4 py-2 rounded-lg text-white text-xs font-semibold border-none cursor-pointer"
-          style={{ background: "var(--accent)", opacity: loading || !input.trim() ? 0.5 : 1 }}>
-          Отправить →
-        </button>
-      </div>
+      {/* Карточки tool_use */}
+      {message.tool_uses && message.tool_uses.length > 0 && (
+        <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 10, color: "var(--t3)", fontWeight: 600 }}>
+            🤖 Жанара хочет выполнить {message.tool_uses.length} действи{message.tool_uses.length === 1 ? "е" : "я"}:
+          </div>
+
+          {message.tool_uses.map((tu, i) => {
+            const desc = describeActionForUI(tu);
+            const risk = RISK_COLORS[desc.risk];
+            return (
+              <div key={i} style={{
+                background: "var(--bg)",
+                border: `1px solid ${risk.border}40`,
+                borderLeft: `3px solid ${risk.border}`,
+                borderRadius: 10,
+                padding: 12,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 22 }}>{desc.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{desc.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--t3)" }}>{desc.description}</div>
+                  </div>
+                  <span style={{
+                    fontSize: 9, fontWeight: 600,
+                    padding: "3px 8px", borderRadius: 4,
+                    background: risk.bg, color: risk.text,
+                  }}>{risk.label}</span>
+                </div>
+
+                {desc.paramsList.length > 0 && (
+                  <div style={{ background: "var(--card)", borderRadius: 6, padding: 10, fontSize: 11, color: "var(--t2)" }}>
+                    {desc.paramsList.map((p, idx) => (
+                      <div key={idx} style={{
+                        display: "flex", justifyContent: "space-between",
+                        padding: "3px 0",
+                        borderBottom: idx < desc.paramsList.length - 1 ? "1px solid var(--brd)" : "none",
+                      }}>
+                        <span style={{ color: "var(--t3)" }}>{p.label}:</span>
+                        <span style={{ fontWeight: 600, marginLeft: 8, textAlign: "right", wordBreak: "break-all" }}>
+                          {p.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Кнопки подтверждения */}
+          {message.pending_confirmation && (
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button onClick={onConfirm}
+                style={{
+                  flex: 1, padding: "10px", borderRadius: 8, border: "none",
+                  background: "linear-gradient(135deg, #10B981, #059669)",
+                  color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                }}>
+                ✓ Выполнить всё ({message.tool_uses.length})
+              </button>
+              <button onClick={onCancel}
+                style={{
+                  flex: 1, padding: "10px", borderRadius: 8,
+                  background: "var(--card)", border: "1px solid var(--brd)",
+                  color: "var(--t2)", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                }}>
+                ✗ Отменить
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
