@@ -6,25 +6,58 @@ import { executeAllTools, describeActionForUI, type ToolUse, type ToolResult } f
 
 interface Message {
   role: "user" | "assistant";
-  content: string | any[]; // string для простых, array для tool_use/tool_result
-  tool_uses?: ToolUse[];   // если ассистент попросил вызвать tools
-  tool_results?: ToolResult[]; // если выполнили tools
-  pending_confirmation?: boolean; // ожидает подтверждения пользователя
+  content: string | any[];
+  tool_uses?: ToolUse[];
+  tool_results?: ToolResult[];
+  pending_confirmation?: boolean;
 }
 
 interface Props {
-  isOpen: boolean;
+  // Поддерживаем оба варианта закрытия
+  isOpen?: boolean;        // новый стиль
   onClose: () => void;
+  // Контекст: либо текст, либо ключ модуля (для совместимости со старым кодом)
   contextText?: string;
+  moduleKey?: string;       // старый стиль (Pack 47) — мы преобразуем в текстовый контекст
 }
 
 const RISK_COLORS = {
-  low: { bg: "#10B98115", border: "#10B981", text: "#10B981", label: "Безопасно" },
+  low:    { bg: "#10B98115", border: "#10B981", text: "#10B981", label: "Безопасно" },
   medium: { bg: "#F59E0B15", border: "#F59E0B", text: "#F59E0B", label: "Внимание" },
-  high: { bg: "#EF444415", border: "#EF4444", text: "#EF4444", label: "Высокий риск" },
+  high:   { bg: "#EF444415", border: "#EF4444", text: "#EF4444", label: "Высокий риск" },
 };
 
-export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props) {
+// Преобразование moduleKey в человекочитаемый контекст
+const MODULE_CONTEXT_HINTS: Record<string, string> = {
+  "dashboard": "Пользователь сейчас на главном дашборде.",
+  "counterparties": "Пользователь работает со справочником контрагентов.",
+  "nomenclature": "Пользователь работает со справочником номенклатуры (товары/услуги).",
+  "orders": "Пользователь работает с заказами на продажу.",
+  "warehouse": "Пользователь смотрит остатки на складе.",
+  "incoming": "Пользователь работает с поступлениями товаров.",
+  "accounting": "Пользователь работает с бухгалтерскими проводками.",
+  "turnover": "Пользователь смотрит ОСВ (оборотно-сальдовую ведомость).",
+  "balance": "Пользователь смотрит бухгалтерский баланс.",
+  "hr": "Пользователь работает со справочником сотрудников.",
+  "hr-orders": "Пользователь рассчитывает зарплату сотрудникам.",
+  "fixed-assets": "Пользователь работает с основными средствами.",
+  "sono": "Пользователь работает с подачей ФНО в КГД (СОНО).",
+  "fno": "Пользователь работает с формами налоговой отчётности.",
+  "doc-generator": "Пользователь генерирует документы (счета, акты, договоры).",
+  "migration": "Пользователь импортирует данные из 1С.",
+  "exports": "Пользователь экспортирует отчёты в Excel/PDF.",
+  "forecast": "Пользователь работает с прогнозом кэшфлоу.",
+  "settings": "Пользователь в настройках системы.",
+  "ai": "Пользователь в главном чате с Жанарой.",
+  "help": "Пользователь читает справочный центр.",
+};
+
+export default function JanaraSidePanel({
+  isOpen = true,
+  onClose,
+  contextText,
+  moduleKey,
+}: Props) {
   const supabase = createClient();
   const [userId, setUserId] = useState("");
   const [messages, setMessages] = useState<Message[]>([
@@ -35,7 +68,7 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [autoApprove, setAutoApprove] = useState(false); // автоматически подтверждать low-risk
+  const [autoApprove, setAutoApprove] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,12 +81,24 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Объединяем contextText и moduleKey в один контекст для AI
+  function buildContext(): string {
+    const parts: string[] = [];
+    if (moduleKey && MODULE_CONTEXT_HINTS[moduleKey]) {
+      parts.push(MODULE_CONTEXT_HINTS[moduleKey]);
+    } else if (moduleKey) {
+      parts.push(`Текущий модуль: ${moduleKey}`);
+    }
+    if (contextText) {
+      parts.push(contextText);
+    }
+    return parts.join("\n\n");
+  }
+
   async function callAPI(currentMessages: Message[]) {
     setLoading(true);
 
-    // Преобразуем сообщения в формат API
     const apiMessages = currentMessages.map(m => {
-      // Если у assistant был tool_use — передаём блоками
       if (m.role === "assistant" && m.tool_uses && m.tool_uses.length > 0) {
         const blocks: any[] = [];
         if (typeof m.content === "string" && m.content) {
@@ -70,7 +115,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
         return { role: "assistant", content: blocks };
       }
 
-      // Если user отправляет результаты tools
       if (m.role === "user" && m.tool_results && m.tool_results.length > 0) {
         return {
           role: "user",
@@ -82,7 +126,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
         };
       }
 
-      // Обычное сообщение
       return { role: m.role, content: m.content as string };
     });
 
@@ -93,7 +136,7 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
         body: JSON.stringify({
           mode: "chat",
           messages: apiMessages,
-          contextText: contextText || "",
+          contextText: buildContext(),
           enableTools: true,
         }),
       });
@@ -116,7 +159,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
       const updated = [...currentMessages, assistantMsg];
       setMessages(updated);
 
-      // Автоподтверждение для low-risk если включено
       if (autoApprove && assistantMsg.tool_uses) {
         const allLowRisk = assistantMsg.tool_uses.every(tu => {
           const desc = describeActionForUI(tu);
@@ -146,22 +188,18 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
     await callAPI(newMessages);
   }
 
-  // Подтверждение и выполнение tool_use
   async function confirmTools(currentMessages: Message[], messageIndex: number) {
     const msg = currentMessages[messageIndex];
     if (!msg.tool_uses || !userId) return;
 
     setLoading(true);
 
-    // Помечаем что подтверждение получено
     const updatedMsgs = [...currentMessages];
     updatedMsgs[messageIndex] = { ...msg, pending_confirmation: false };
     setMessages(updatedMsgs);
 
-    // Выполняем все tools
     const results = await executeAllTools(supabase, userId, msg.tool_uses);
 
-    // Добавляем сообщение с результатами от пользователя (для AI)
     const withResults: Message[] = [
       ...updatedMsgs,
       {
@@ -172,11 +210,9 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
     ];
     setMessages(withResults);
 
-    // Отправляем результаты обратно Жанаре чтобы она прокомментировала
     await callAPI(withResults);
   }
 
-  // Отмена tool_use
   function cancelTools(messageIndex: number) {
     const msg = messages[messageIndex];
     if (!msg.tool_uses) return;
@@ -207,7 +243,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
       background: "var(--bg)", borderLeft: "1px solid var(--brd)", zIndex: 1000,
       display: "flex", flexDirection: "column", boxShadow: "-8px 0 24px rgba(0,0,0,0.1)",
     }}>
-      {/* Шапка */}
       <div style={{ padding: 16, borderBottom: "1px solid var(--brd)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 22 }}>✦</span>
@@ -219,7 +254,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
         <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: 22, cursor: "pointer", color: "var(--t3)" }}>×</button>
       </div>
 
-      {/* Опция автоподтверждения */}
       <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--brd)", background: "var(--card)" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, cursor: "pointer", color: "var(--t2)" }}>
           <input type="checkbox" checked={autoApprove} onChange={e => setAutoApprove(e.target.checked)} />
@@ -227,7 +261,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
         </label>
       </div>
 
-      {/* Сообщения */}
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         {messages.map((msg, i) => (
           <MessageView
@@ -246,7 +279,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Ввод */}
       <div style={{ padding: 12, borderTop: "1px solid var(--brd)", background: "var(--card)" }}>
         <div style={{ display: "flex", gap: 8 }}>
           <textarea
@@ -276,10 +308,6 @@ export default function JanaraSidePanel({ isOpen, onClose, contextText }: Props)
   );
 }
 
-// ═══════════════════════════════════════════
-// КОМПОНЕНТ ОТОБРАЖЕНИЯ СООБЩЕНИЯ
-// ═══════════════════════════════════════════
-
 function MessageView({
   message, messageIndex, onConfirm, onCancel,
 }: {
@@ -291,7 +319,6 @@ function MessageView({
   const isUser = message.role === "user";
   const hasToolResults = message.tool_results && message.tool_results.length > 0;
 
-  // Сообщение с результатами выполнения tools — показываем компактно
   if (hasToolResults) {
     return (
       <div style={{ background: "var(--card)", borderRadius: 12, padding: 10, fontSize: 11 }}>
@@ -314,7 +341,6 @@ function MessageView({
       alignSelf: isUser ? "flex-end" : "flex-start",
       maxWidth: "85%",
     }}>
-      {/* Текст сообщения */}
       {typeof message.content === "string" && message.content && (
         <div style={{
           padding: "10px 14px", borderRadius: 12,
@@ -327,7 +353,6 @@ function MessageView({
         </div>
       )}
 
-      {/* Карточки tool_use с кнопками подтверждения */}
       {message.tool_uses && message.tool_uses.length > 0 && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ fontSize: 10, color: "var(--t3)", fontWeight: 600 }}>
@@ -370,7 +395,6 @@ function MessageView({
             );
           })}
 
-          {/* Кнопки подтверждения (показываются только если pending) */}
           {message.pending_confirmation && (
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button onClick={onConfirm}
