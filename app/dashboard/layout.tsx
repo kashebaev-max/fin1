@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import type { Profile } from "@/lib/types";
 import { HOME_MODULE, MODULE_GROUPS, ALL_MODULES, isModuleEnabled } from "@/lib/modules-config";
+import NotificationBell from "@/components/NotificationBell";
 
 const ADMIN_EMAIL = "kashebaev@gmail.com";
 const STORAGE_EXPANDED = "finerp-sidebar-expanded";
@@ -75,7 +76,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       setIsAdmin(data.email === ADMIN_EMAIL || data.role === "admin");
     }
 
-    // Загружаем настройки модулей
     const { data: prefs } = await supabase.from("module_preferences").select("disabled_modules").eq("user_id", user.id).maybeSingle();
     if (prefs?.disabled_modules) {
       setDisabledModules(Array.isArray(prefs.disabled_modules) ? prefs.disabled_modules : []);
@@ -88,7 +88,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
-  // Активный модуль
   const activeModule = ALL_MODULES.find(m => pathname === m.path)
     || ALL_MODULES.find(m => pathname.startsWith(m.path) && m.path !== "/dashboard")
     || HOME_MODULE;
@@ -99,7 +98,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const isSearching = searchLower.length > 0;
   const matches = (name: string) => name.toLowerCase().includes(searchLower);
 
-  // Видимые группы: фильтруем admin-only И отключенные модули
   const visibleGroups = MODULE_GROUPS.map(g => ({
     ...g,
     items: g.items.filter(i =>
@@ -263,7 +261,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="text-center py-4 text-[11px]" style={{ color: "var(--t3)" }}>Ничего не найдено</div>
           )}
 
-          {/* Подсказка о том, что есть скрытые модули */}
           {!isSearching && !collapsed && disabledModules.length > 0 && (
             <button
               onClick={() => router.push("/dashboard/settings/modules")}
@@ -311,6 +308,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <h1 className="text-lg font-bold" style={{ letterSpacing: "-0.02em" }}>{activeModule.name}</h1>
             <div className="text-[11px] mt-0.5" style={{ color: "var(--t3)" }}>{profile?.company_name || "Организация"} • НДС 16% • МРП 4 325 ₸</div>
           </div>
+          {/* Колокольчик уведомлений */}
+          <NotificationBell />
         </header>
         <div className="flex-1 overflow-auto p-6">{children}</div>
       </main>
