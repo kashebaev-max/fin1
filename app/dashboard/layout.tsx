@@ -7,6 +7,7 @@ import type { Profile } from "@/lib/types";
 import { HOME_MODULE, MODULE_GROUPS, ALL_MODULES, isModuleEnabled } from "@/lib/modules-config";
 import NotificationBell from "@/components/NotificationBell";
 import JanaraButton from "@/components/JanaraButton";
+import SubscriptionBanner from "@/components/SubscriptionBanner";
 
 const ADMIN_EMAIL = "kashebaev@gmail.com";
 const STORAGE_EXPANDED = "finerp-sidebar-expanded";
@@ -311,7 +312,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
           <NotificationBell />
         </header>
-        <div className="flex-1 overflow-auto p-6">{children}</div>
+        <div className="flex-1 overflow-auto p-6">
+          <SubscriptionBanner />
+          {children}
+        </div>
       </main>
 
       {/* Глобальная плавающая кнопка Жанары на всех страницах */}

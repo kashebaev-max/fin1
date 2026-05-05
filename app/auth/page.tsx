@@ -4,12 +4,28 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 
+// Нормализация телефона в формат 87XXXXXXXXX (для Apipay/Kaspi)
+function normalizePhone(phone: string): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("7")) return "8" + digits.slice(1);
+  if (digits.length === 11 && digits.startsWith("8")) return digits;
+  if (digits.length === 10) return "8" + digits;
+  return digits;
+}
+
+function isValidKZPhone(phone: string): boolean {
+  const normalized = normalizePhone(phone);
+  return normalized.length === 11 && normalized.startsWith("8");
+}
+
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -31,15 +47,28 @@ export default function AuthPage() {
         router.push("/dashboard");
         router.refresh();
       } else {
+        // Валидация телефона при регистрации
+        if (!isValidKZPhone(phone)) {
+          setError("Укажите телефон в формате 87XXXXXXXXX (привязанный к Kaspi)");
+          setLoading(false);
+          return;
+        }
+
+        const normalizedPhone = normalizePhone(phone);
+
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { full_name: fullName, company_name: companyName } },
+          options: { data: { full_name: fullName, company_name: companyName, phone: normalizedPhone } },
         });
         if (error) throw error;
         if (data.user) {
-          await supabase.from("profiles").update({ full_name: fullName, company_name: companyName }).eq("id", data.user.id);
+          await supabase.from("profiles").update({ 
+            full_name: fullName, 
+            company_name: companyName,
+            phone: normalizedPhone,
+          }).eq("id", data.user.id);
         }
-        setSuccess("Регистрация успешна! Проверьте email для подтверждения или войдите.");
+        setSuccess("Регистрация успешна! Тестовый период 30 дней активирован. Проверьте email или войдите.");
         setIsLogin(true);
       }
     } catch (err: any) {
@@ -77,6 +106,12 @@ export default function AuthPage() {
             </button>
           </div>
 
+          {!isLogin && (
+            <div className="rounded-lg p-3 mb-4 text-xs" style={{ background: "#A855F710", border: "1px solid #A855F730", color: "var(--t2)" }}>
+              🎁 <b>30 дней бесплатно</b> при регистрации. После триала — 10 000 ₸/мес или 100 000 ₸/год.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {!isLogin && (
               <>
@@ -87,6 +122,21 @@ export default function AuthPage() {
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: "var(--t3)" }}>Название организации</label>
                   <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder='ТОО «Ваша Компания»' required />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--t3)" }}>
+                    Телефон (привязанный к Kaspi)
+                  </label>
+                  <input 
+                    type="tel" 
+                    value={phone} 
+                    onChange={e => setPhone(e.target.value)} 
+                    placeholder="87001234567"
+                    required
+                  />
+                  <div className="text-[10px] mt-1" style={{ color: "var(--t3)" }}>
+                    Нужен для оплаты подписки через Kaspi после триала
+                  </div>
                 </div>
               </>
             )}
