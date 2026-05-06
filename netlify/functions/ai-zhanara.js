@@ -1,8 +1,11 @@
 // AI-помощник Жанара с tool_use API.
-// 11 инструментов (Pack 62: +3 новых для склада)
+// 11 инструментов + retry-логика + fallback на Haiku при перегрузке.
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-5";
+
+// Главная модель + резервная
+const PRIMARY_MODEL = "claude-sonnet-4-5";
+const FALLBACK_MODEL = "claude-haiku-4-5-20251001";
 
 // ═══════════════════════════════════════════
 // 11 ИНСТРУМЕНТОВ
@@ -144,10 +147,9 @@ const TOOLS = [
       required: ["payment_type", "amount", "counterparty_name"]
     }
   },
-  // ═══ НОВОЕ В Pack 62 ═══
   {
     name: "create_warehouse",
-    description: "Создать новый склад. Типы: main (основной), transit (транзитный), production (производственный), returns (возвратный), consignment (комиссионный).",
+    description: "Создать новый склад. Типы: main, transit, production, returns, consignment.",
     input_schema: {
       type: "object",
       properties: {
@@ -164,30 +166,30 @@ const TOOLS = [
   },
   {
     name: "create_warehouse_transfer",
-    description: "Создать перемещение товара между складами. Автоматически уменьшает остаток на складе-источнике и увеличивает на получателе. Использует для конкретного товара (один товар на одно перемещение).",
+    description: "Перемещение товара между складами с автообновлением остатков.",
     input_schema: {
       type: "object",
       properties: {
-        from_warehouse_name: { type: "string", description: "Склад-источник (откуда)" },
-        to_warehouse_name: { type: "string", description: "Склад-получатель (куда)" },
-        transfer_date: { type: "string", description: "Дата перемещения" },
-        product_name: { type: "string", description: "Наименование товара" },
-        quantity: { type: "number", description: "Количество" },
-        notes: { type: "string", description: "Примечание" }
+        from_warehouse_name: { type: "string", description: "Склад-источник" },
+        to_warehouse_name: { type: "string", description: "Склад-получатель" },
+        transfer_date: { type: "string" },
+        product_name: { type: "string" },
+        quantity: { type: "number" },
+        notes: { type: "string" }
       },
       required: ["from_warehouse_name", "to_warehouse_name", "product_name", "quantity"]
     }
   },
   {
     name: "create_inventory_act",
-    description: "Создать акт инвентаризации для склада. Автоматически загружает все товары из номенклатуры с текущими остатками для проверки. После создания пользователь должен зайти в /dashboard/inventory и внести фактические количества.",
+    description: "Создать акт инвентаризации с автозагрузкой товаров.",
     input_schema: {
       type: "object",
       properties: {
-        warehouse_name: { type: "string", description: "Наименование склада" },
-        act_date: { type: "string", description: "Дата инвентаризации" },
-        responsible_name: { type: "string", description: "ФИО ответственного" },
-        notes: { type: "string", description: "Примечание" }
+        warehouse_name: { type: "string" },
+        act_date: { type: "string" },
+        responsible_name: { type: "string" },
+        notes: { type: "string" }
       },
       required: ["warehouse_name"]
     }
@@ -204,24 +206,15 @@ const SYSTEM_PROMPT = "Ты — Жанара, AI-помощник Finstat.kz п�
 "- Если нет → честно скажи 'не могу, сделайте вручную'\n" +
 "- НИКОГДА не пиши '✅ Создано' без вызова tool_use — это ЛОЖЬ\n\n" +
 "ИНСТРУМЕНТЫ (11 шт):\n" +
-"- create_counterparty — контрагенты\n" +
-"- create_nomenclature — товары/услуги\n" +
-"- create_employee — сотрудники\n" +
-"- create_journal_entry — проводки\n" +
-"- create_order — заказы\n" +
-"- create_fixed_asset — основные средства\n" +
-"- generate_document — документы\n" +
-"- record_payment — платежи\n" +
-"- create_warehouse — склады (Pack 62)\n" +
-"- create_warehouse_transfer — перемещения между складами (Pack 62)\n" +
-"- create_inventory_act — инвентаризация склада (Pack 62)\n\n" +
+"create_counterparty, create_nomenclature, create_employee, create_journal_entry, " +
+"create_order, create_fixed_asset, generate_document, record_payment, " +
+"create_warehouse, create_warehouse_transfer, create_inventory_act\n\n" +
 "НК РК 2026: НДС 16%, КПН 20%, ИПН 10% (вычет 14 МРП), ОПВ 10%, СН 6%, МРП 4325₸.\n" +
-"Счета: 1010 касса, 1030 банк, 6010 выручка, 7010 себестоимость, 1210 деб., 3310 кред., 1330 запасы.\n" +
-"Типы складов: main, transit, production, returns, consignment.\n\n" +
+"Счета: 1010 касса, 1030 банк, 6010 выручка, 7010 себестоимость, 1210 деб., 3310 кред., 1330 запасы.\n\n" +
 "Отвечай на русском, кратко.";
 
 // ═══════════════════════════════════════════
-// HANDLER
+// УТИЛИТЫ
 // ═══════════════════════════════════════════
 
 function corsHeaders() {
@@ -231,6 +224,132 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "POST, OPTIONS"
   };
 }
+
+function sleep(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
+// Один вызов API с таймаутом
+async function callAnthropic(apiKey, model, requestBody, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
+
+  try {
+    const res = await fetch(ANTHROPIC_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify(Object.assign({}, requestBody, { model: model })),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    return { ok: res.ok, status: res.status, response: res };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
+// Главная функция: 3 попытки с retry и fallback
+async function callWithRetryAndFallback(apiKey, requestBody) {
+  const maxAttempts = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Попытка 1-2: главная модель
+    // Попытка 3: резервная модель
+    const model = attempt < 3 ? PRIMARY_MODEL : FALLBACK_MODEL;
+    
+    // Уменьшаем таймаут на каждой попытке: 18 → 14 → 10 секунд
+    const timeoutMs = attempt === 1 ? 18000 : attempt === 2 ? 14000 : 10000;
+
+    try {
+      const result = await callAnthropic(apiKey, model, requestBody, timeoutMs);
+
+      // Успех — возвращаем
+      if (result.ok) {
+        const data = await result.response.json();
+        return { success: true, data: data, model_used: model, attempts: attempt };
+      }
+
+      // Ошибки которые НЕ нужно повторять (синтаксис, авторизация)
+      if (result.status === 400 || result.status === 401 || result.status === 403) {
+        const errText = await result.response.text();
+        return {
+          success: false,
+          status: result.status,
+          error: "Ошибка запроса: " + errText,
+          permanent: true
+        };
+      }
+
+      // Overloaded (529) или Service Unavailable (503) или Rate Limit (429) — пробуем снова
+      const errText = await result.response.text();
+      lastError = {
+        status: result.status,
+        text: errText,
+        model: model
+      };
+
+      // Последняя попытка — возвращаем ошибку
+      if (attempt === maxAttempts) {
+        return {
+          success: false,
+          status: result.status,
+          error: "AI временно перегружен. Попробуйте через 1-2 минуты.",
+          details: errText,
+          attempts: attempt
+        };
+      }
+
+      // Ждём перед следующей попыткой: 1 сек → 3 сек
+      const delayMs = attempt === 1 ? 1000 : 3000;
+      await sleep(delayMs);
+
+    } catch (err) {
+      // Network error / timeout
+      lastError = {
+        text: err && err.message ? err.message : String(err),
+        model: model
+      };
+
+      if (err && err.name === "AbortError") {
+        if (attempt === maxAttempts) {
+          return {
+            success: false,
+            error: "⏱ AI не успел ответить за отведённое время. Попробуйте короче запрос.",
+            attempts: attempt
+          };
+        }
+      }
+
+      if (attempt === maxAttempts) {
+        return {
+          success: false,
+          error: "Ошибка связи с AI: " + lastError.text,
+          attempts: attempt
+        };
+      }
+
+      const delayMs = attempt === 1 ? 1000 : 3000;
+      await sleep(delayMs);
+    }
+  }
+
+  return {
+    success: false,
+    error: "Не удалось получить ответ AI после " + maxAttempts + " попыток"
+  };
+}
+
+// ═══════════════════════════════════════════
+// HANDLER
+// ═══════════════════════════════════════════
 
 exports.handler = async function(event) {
   if (event.httpMethod === "OPTIONS") {
@@ -262,77 +381,52 @@ exports.handler = async function(event) {
     finalSystem += "\n\n📊 КОНТЕКСТ:\n" + contextText;
   }
 
-  try {
-    const requestBody = {
-      model: MODEL,
-      max_tokens: 2000,
-      system: finalSystem,
-      messages: messages
-    };
+  const requestBody = {
+    max_tokens: 2000,
+    system: finalSystem,
+    messages: messages
+  };
 
-    if (enableTools) {
-      requestBody.tools = TOOLS;
-    }
+  if (enableTools) {
+    requestBody.tools = TOOLS;
+  }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(function() { controller.abort(); }, 24000);
+  // Вызываем с retry-логикой
+  const result = await callWithRetryAndFallback(apiKey, requestBody);
 
-    const claudeRes = await fetch(ANTHROPIC_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!claudeRes.ok) {
-      const errText = await claudeRes.text();
-      let errMessage = errText;
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed.error && parsed.error.message) errMessage = parsed.error.message;
-      } catch (e) {}
-
-      return {
-        statusCode: claudeRes.status,
-        headers: { ...corsHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Claude API: " + errMessage })
-      };
-    }
-
-    const data = await claudeRes.json();
-
-    const textBlocks = (data.content || []).filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; });
-    const toolUses = (data.content || []).filter(function(b) { return b.type === "tool_use"; });
-
+  if (!result.success) {
     return {
-      statusCode: 200,
+      statusCode: result.status || 500,
       headers: { ...corsHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
-        reply: textBlocks.join("\n\n"),
-        tool_uses: toolUses.map(function(t) {
-          return { id: t.id, name: t.name, input: t.input };
-        }),
-        stop_reason: data.stop_reason
+        error: result.error,
+        details: result.details,
+        attempts: result.attempts
       })
     };
-  } catch (err) {
-    const errMessage = err && err.message ? err.message : String(err);
-    let userMessage = errMessage;
-
-    if (err && err.name === "AbortError") {
-      userMessage = "⏱ Превышен таймаут (24 сек). Попробуйте более короткий запрос.";
-    }
-
-    return {
-      statusCode: 500,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ error: userMessage })
-    };
   }
+
+  const data = result.data;
+  const textBlocks = (data.content || []).filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; });
+  const toolUses = (data.content || []).filter(function(b) { return b.type === "tool_use"; });
+
+  // Если использовали fallback, добавим небольшое уведомление
+  let metaInfo = "";
+  if (result.model_used === FALLBACK_MODEL) {
+    metaInfo = "\n\n_(использована резервная AI-модель из-за перегрузки основной)_";
+  }
+
+  return {
+    statusCode: 200,
+    headers: { ...corsHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reply: textBlocks.join("\n\n") + metaInfo,
+      tool_uses: toolUses.map(function(t) {
+        return { id: t.id, name: t.name, input: t.input };
+      }),
+      stop_reason: data.stop_reason,
+      model_used: result.model_used,
+      attempts: result.attempts
+    })
+  };
 };
