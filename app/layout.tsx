@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
+
+// внутри <body>:
+<body>
+  <AnalyticsTracker />
+  {children}
+</body>
 
 export const metadata: Metadata = {
   title: "Finstat.kz — Бухгалтерия для бизнеса Казахстана | НК РК 2026",
