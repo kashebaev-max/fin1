@@ -174,6 +174,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
       { key: "document-scanner", name: "Сканирование документов", icon: "📄", path: "/dashboard/document-scanner", description: "Загрузка PDF/фото → AI распознаёт и проводит" },
       { key: "scheduled-tasks", name: "Регламентные задания", icon: "⏱", path: "/dashboard/scheduled-tasks", description: "Автоматизация: амортизация, проверки и т.д." },
       { key: "migration", name: "Миграция из 1С", icon: "📥", path: "/dashboard/migration", description: "Импорт данных из 1С / Excel / CSV / XML" },
+      { key: "scan", name: "Сканер документов", icon: "📸", path: "/dashboard/scan", description: "OCR распознавание документов через AI" }
     ],
   },
   {

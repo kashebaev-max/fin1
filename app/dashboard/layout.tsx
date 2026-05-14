@@ -8,6 +8,7 @@ import { HOME_MODULE, MODULE_GROUPS, ALL_MODULES, isModuleEnabled } from "@/lib/
 import NotificationBell from "@/components/NotificationBell";
 import JanaraButton from "@/components/JanaraButton";
 import SubscriptionBanner from "@/components/SubscriptionBanner";
+import ScannerButton from "@/components/ScannerButton";
 
 const ADMIN_EMAIL = "kashebaev@gmail.com";
 const STORAGE_EXPANDED = "finerp-sidebar-expanded";
@@ -310,7 +311,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <h1 className="text-lg font-bold" style={{ letterSpacing: "-0.02em" }}>{activeModule.name}</h1>
             <div className="text-[11px] mt-0.5" style={{ color: "var(--t3)" }}>{profile?.company_name || "Организация"} • НДС 16% • МРП 4 325 ₸</div>
           </div>
-          <NotificationBell />
+          <div className="flex items-center gap-2">
+            <ScannerButton />
+            <NotificationBell />
+          </div>
         </header>
         <div className="flex-1 overflow-auto p-6">
           <SubscriptionBanner />
