@@ -2,12 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 
-// внутри <body>:
-<body>
-  <AnalyticsTracker />
-  {children}
-</body>
-
 export const metadata: Metadata = {
   title: "Finstat.kz — Бухгалтерия для бизнеса Казахстана | НК РК 2026",
   description: "Современная ERP-система: бухгалтерия, склад, касса, документы. AI-помощник Жанара. Все расчёты по Налоговому Кодексу РК 2026 (НДС 16%).",
@@ -38,7 +32,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.ico" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body>{children}</body>
+      <body>
+        <AnalyticsTracker />
+        {children}
+      </body>
     </html>
   );
 }
