@@ -118,6 +118,9 @@ export const MODULE_GROUPS: ModuleGroup[] = [
       { key: "vacations", name: "Отпуска", icon: "🏖", path: "/dashboard/vacations", description: "График и расчёт отпускных" },
       { key: "hr-orders", name: "Кадровые приказы", icon: "📜", path: "/dashboard/hr-orders", description: "Т-1/Т-5/Т-6/Т-8" },
       { key: "deductions", name: "Удержания из ЗП", icon: "💸", path: "/dashboard/deductions", description: "Алименты, кредиты, исп. листы" },
+      { key: "timesheet",   name: "Табель учёта", icon: "⏰", path: "/dashboard/timesheet" },
+{ key: "vacations",   name: "Отпуска",      icon: "🏖", path: "/dashboard/vacations" },
+{ key: "sick-leaves", name: "Больничные",   icon: "🤒", path: "/dashboard/sick-leaves" },
     ],
   },
   {
