@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { executeAllTools, describeActionForUI, type ToolUse, type ToolResult } from "@/lib/ai-execute";
+import { loadChatHistory, saveChatMessage, clearChatHistory } from "@/lib/chat-history";
 
 interface Message {
   role: "user" | "assistant";
@@ -13,12 +14,10 @@ interface Message {
 }
 
 interface Props {
-  // Поддерживаем оба варианта закрытия
-  isOpen?: boolean;        // новый стиль
+  isOpen?: boolean;
   onClose: () => void;
-  // Контекст: либо текст, либо ключ модуля (для совместимости со старым кодом)
   contextText?: string;
-  moduleKey?: string;       // старый стиль (Pack 47) — мы преобразуем в текстовый контекст
+  moduleKey?: string;
 }
 
 const RISK_COLORS = {
@@ -27,7 +26,6 @@ const RISK_COLORS = {
   high:   { bg: "#EF444415", border: "#EF4444", text: "#EF4444", label: "Высокий риск" },
 };
 
-// Преобразование moduleKey в человекочитаемый контекст
 const MODULE_CONTEXT_HINTS: Record<string, string> = {
   "dashboard": "Пользователь сейчас на главном дашборде.",
   "counterparties": "Пользователь работает со справочником контрагентов.",
@@ -52,6 +50,12 @@ const MODULE_CONTEXT_HINTS: Record<string, string> = {
   "help": "Пользователь читает справочный центр.",
 };
 
+// Приветственное сообщение если истории нет
+const WELCOME_MESSAGE: Message = {
+  role: "assistant",
+  content: "Привет! Я Жанара, твой AI-помощник. Могу создавать контрагентов, товары, сотрудников, проводки, заказы, ОС, документы, платежи. Все действия с твоим подтверждением. Что нужно сделать?",
+};
+
 export default function JanaraSidePanel({
   isOpen = true,
   onClose,
@@ -60,28 +64,49 @@ export default function JanaraSidePanel({
 }: Props) {
   const supabase = createClient();
   const [userId, setUserId] = useState("");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Привет! Я Жанара, твой AI-помощник. Могу создавать контрагентов, товары, сотрудников, проводки, заказы, ОС, документы, платежи. Все действия с твоим подтверждением. Что нужно сделать?",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 🆕 Загрузка истории при открытии чата
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
-    });
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setHistoryLoaded(true);
+        return;
+      }
+      setUserId(user.id);
+
+      // Загружаем последние 50 сообщений из БД
+      try {
+        const history = await loadChatHistory(supabase, user.id, 50);
+        if (history.length > 0) {
+          // Конвертируем формат БД в формат компонента
+          const restored: Message[] = history.map(h => ({
+            role: h.role,
+            content: h.content,
+            tool_uses: h.tool_uses && Array.isArray(h.tool_uses) && h.tool_uses.length > 0 ? h.tool_uses : undefined,
+            // Старые tool_uses уже подтверждены, не показываем кнопки
+            pending_confirmation: false,
+          }));
+          setMessages(restored);
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
+      setHistoryLoaded(true);
+    }
+    init();
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Объединяем contextText и moduleKey в один контекст для AI
   function buildContext(): string {
     const parts: string[] = [];
     if (moduleKey && MODULE_CONTEXT_HINTS[moduleKey]) {
@@ -93,6 +118,23 @@ export default function JanaraSidePanel({
       parts.push(contextText);
     }
     return parts.join("\n\n");
+  }
+
+  // 🆕 Универсальное сохранение сообщения в БД (не падает на ошибке)
+  async function saveToHistory(msg: Message) {
+    if (!userId) return;
+    try {
+      // Сохраняем только если content — строка (не сохраняем tool_results)
+      if (typeof msg.content === "string" && msg.content) {
+        await saveChatMessage(supabase, userId, {
+          role: msg.role,
+          content: msg.content,
+          tool_uses: msg.tool_uses,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save message:", err);
+    }
   }
 
   async function callAPI(currentMessages: Message[]) {
@@ -141,10 +183,38 @@ export default function JanaraSidePanel({
         }),
       });
 
-      const data = await res.json();
+      // 🆕 Безопасный парсинг ответа (защита от HTML при 504)
+      const text = await res.text();
+      
+      if (text.trim().startsWith("<") || text.trim().toLowerCase().startsWith("<!doctype")) {
+        const errorMsg: Message = {
+          role: "assistant",
+          content: "⏱ AI не успел ответить за отведённое время. Попробуйте задать вопрос покороче или повторите через минуту.",
+        };
+        setMessages(prev => [...prev, errorMsg]);
+        await saveToHistory(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        const errorMsg: Message = {
+          role: "assistant",
+          content: "❌ Ошибка обработки ответа AI. Попробуйте ещё раз.",
+        };
+        setMessages(prev => [...prev, errorMsg]);
+        await saveToHistory(errorMsg);
+        setLoading(false);
+        return;
+      }
 
       if (data.error) {
-        setMessages(prev => [...prev, { role: "assistant", content: `❌ Ошибка: ${data.error}` }]);
+        const errorMsg: Message = { role: "assistant", content: `❌ ${data.error}` };
+        setMessages(prev => [...prev, errorMsg]);
+        await saveToHistory(errorMsg);
         setLoading(false);
         return;
       }
@@ -159,6 +229,9 @@ export default function JanaraSidePanel({
       const updated = [...currentMessages, assistantMsg];
       setMessages(updated);
 
+      // 🆕 Сохраняем ответ Жанары в БД
+      await saveToHistory(assistantMsg);
+
       if (autoApprove && assistantMsg.tool_uses) {
         const allLowRisk = assistantMsg.tool_uses.every(tu => {
           const desc = describeActionForUI(tu);
@@ -169,7 +242,9 @@ export default function JanaraSidePanel({
         }
       }
     } catch (err: any) {
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ Ошибка сети: ${err.message}` }]);
+      const errorMsg: Message = { role: "assistant", content: `❌ Ошибка сети: ${err.message}` };
+      setMessages(prev => [...prev, errorMsg]);
+      await saveToHistory(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -178,12 +253,13 @@ export default function JanaraSidePanel({
   async function sendMessage() {
     if (!input.trim() || loading) return;
 
-    const newMessages: Message[] = [
-      ...messages,
-      { role: "user", content: input.trim() },
-    ];
+    const userMsg: Message = { role: "user", content: input.trim() };
+    const newMessages: Message[] = [...messages, userMsg];
     setMessages(newMessages);
     setInput("");
+
+    // 🆕 Сохраняем сообщение пользователя в БД
+    await saveToHistory(userMsg);
 
     await callAPI(newMessages);
   }
@@ -235,6 +311,27 @@ export default function JanaraSidePanel({
     callAPI(updated);
   }
 
+  // 🆕 Очистить всю историю переписки
+  async function handleClearHistory() {
+    if (!userId) return;
+    
+    const ok = window.confirm("Удалить ВСЮ историю переписки с Жанарой?\n\nЭто нельзя отменить.");
+    if (!ok) return;
+    
+    setLoading(true);
+    try {
+      const success = await clearChatHistory(supabase, userId);
+      if (success) {
+        setMessages([WELCOME_MESSAGE]);
+      } else {
+        alert("❌ Не удалось очистить историю");
+      }
+    } catch (err: any) {
+      alert("❌ Ошибка: " + err.message);
+    }
+    setLoading(false);
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -251,7 +348,22 @@ export default function JanaraSidePanel({
             <div style={{ fontSize: 10, color: "var(--t3)" }}>AI-помощник Finstat.kz</div>
           </div>
         </div>
-        <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: 22, cursor: "pointer", color: "var(--t3)" }}>×</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {/* 🆕 Кнопка очистки истории */}
+          {messages.length > 1 && (
+            <button onClick={handleClearHistory}
+              title="Очистить историю переписки"
+              style={{
+                background: "#EF444415", color: "#EF4444",
+                border: "1px solid #EF444440", borderRadius: 6,
+                padding: "4px 8px", fontSize: 10, fontWeight: 600,
+                cursor: "pointer",
+              }}>
+              🗑 Очистить
+            </button>
+          )}
+          <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: 22, cursor: "pointer", color: "var(--t3)" }}>×</button>
+        </div>
       </div>
 
       <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--brd)", background: "var(--card)" }}>
@@ -262,6 +374,11 @@ export default function JanaraSidePanel({
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+        {!historyLoaded && (
+          <div style={{ padding: 12, background: "var(--card)", borderRadius: 12, fontSize: 12, color: "var(--t3)", textAlign: "center" }}>
+            📜 Загрузка истории...
+          </div>
+        )}
         {messages.map((msg, i) => (
           <MessageView
             key={i}
