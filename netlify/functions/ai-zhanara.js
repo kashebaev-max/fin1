@@ -1,9 +1,9 @@
 // AI-помощник Жанара с tool_use API.
-// 11 инструментов + retry-логика + fallback на Haiku при перегрузке.
+// 11 инструментов + retry + fallback на Haiku при перегрузке.
+// Уменьшенные таймауты чтобы успевать в лимит Netlify 26 сек.
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 
-// Главная модель + резервная
 const PRIMARY_MODEL = "claude-sonnet-4-5";
 const FALLBACK_MODEL = "claude-haiku-4-5-20251001";
 
@@ -197,21 +197,19 @@ const TOOLS = [
 ];
 
 // ═══════════════════════════════════════════
-// СИСТЕМНЫЙ ПРОМПТ
+// СИСТЕМНЫЙ ПРОМПТ (короче — для скорости)
 // ═══════════════════════════════════════════
 
 const SYSTEM_PROMPT = "Ты — Жанара, AI-помощник Finstat.kz по бухгалтерии и налогам РК.\n\n" +
-"🔴 КРИТИЧНО: НИКОГДА НЕ ВРИ ЧТО ВЫПОЛНИЛ ДЕЙСТВИЕ.\n" +
-"- Если есть инструмент → вызови tool_use\n" +
-"- Если нет → честно скажи 'не могу, сделайте вручную'\n" +
-"- НИКОГДА не пиши '✅ Создано' без вызова tool_use — это ЛОЖЬ\n\n" +
-"ИНСТРУМЕНТЫ (11 шт):\n" +
-"create_counterparty, create_nomenclature, create_employee, create_journal_entry, " +
-"create_order, create_fixed_asset, generate_document, record_payment, " +
-"create_warehouse, create_warehouse_transfer, create_inventory_act\n\n" +
+"🔴 ПРАВИЛО ДЛЯ ДЕЙСТВИЙ: НЕ ВРИ что выполнил действие.\n" +
+"- Есть инструмент → вызови tool_use\n" +
+"- Нет → честно скажи 'не могу, сделайте вручную'\n" +
+"- НИКОГДА не пиши '✅ Создано' без tool_use\n\n" +
+"ИНСТРУМЕНТЫ (11): create_counterparty, create_nomenclature, create_employee, create_journal_entry, " +
+"create_order, create_fixed_asset, generate_document, record_payment, create_warehouse, create_warehouse_transfer, create_inventory_act\n\n" +
 "НК РК 2026: НДС 16%, КПН 20%, ИПН 10% (вычет 14 МРП), ОПВ 10%, СН 6%, МРП 4325₸.\n" +
-"Счета: 1010 касса, 1030 банк, 6010 выручка, 7010 себестоимость, 1210 деб., 3310 кред., 1330 запасы.\n\n" +
-"Отвечай на русском, кратко.";
+"Счета НСФО: 1010 касса, 1030 банк, 1210 деб., 1330 запасы, 3310 кред., 6010 выручка, 7010 себестоимость, 7110 расходы по ЗП.\n\n" +
+"Отвечай на русском, КРАТКО (4-8 предложений), по делу. Длинные ответы — только если явно просят.";
 
 // ═══════════════════════════════════════════
 // УТИЛИТЫ
@@ -229,7 +227,6 @@ function sleep(ms) {
   return new Promise(function(resolve) { setTimeout(resolve, ms); });
 }
 
-// Один вызов API с таймаутом
 async function callAnthropic(apiKey, model, requestBody, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
@@ -247,7 +244,6 @@ async function callAnthropic(apiKey, model, requestBody, timeoutMs) {
     });
 
     clearTimeout(timeoutId);
-
     return { ok: res.ok, status: res.status, response: res };
   } catch (err) {
     clearTimeout(timeoutId);
@@ -255,29 +251,26 @@ async function callAnthropic(apiKey, model, requestBody, timeoutMs) {
   }
 }
 
-// Главная функция: 3 попытки с retry и fallback
+// 3 попытки с УМЕНЬШЕННЫМИ таймаутами (14→10→8 сек)
+// Общий бюджет: 14 + 0.5 + 10 + 1 + 8 = ~24 сек (укладываемся в 26 сек Netlify)
 async function callWithRetryAndFallback(apiKey, requestBody) {
   const maxAttempts = 3;
   let lastError = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    // Попытка 1-2: главная модель
-    // Попытка 3: резервная модель
     const model = attempt < 3 ? PRIMARY_MODEL : FALLBACK_MODEL;
     
-    // Уменьшаем таймаут на каждой попытке: 18 → 14 → 10 секунд
-    const timeoutMs = attempt === 1 ? 18000 : attempt === 2 ? 14000 : 10000;
+    // УМЕНЬШЕНЫ: 14 → 10 → 8 секунд (было 18 → 14 → 10)
+    const timeoutMs = attempt === 1 ? 14000 : attempt === 2 ? 10000 : 8000;
 
     try {
       const result = await callAnthropic(apiKey, model, requestBody, timeoutMs);
 
-      // Успех — возвращаем
       if (result.ok) {
         const data = await result.response.json();
         return { success: true, data: data, model_used: model, attempts: attempt };
       }
 
-      // Ошибки которые НЕ нужно повторять (синтаксис, авторизация)
       if (result.status === 400 || result.status === 401 || result.status === 403) {
         const errText = await result.response.text();
         return {
@@ -288,41 +281,31 @@ async function callWithRetryAndFallback(apiKey, requestBody) {
         };
       }
 
-      // Overloaded (529) или Service Unavailable (503) или Rate Limit (429) — пробуем снова
       const errText = await result.response.text();
-      lastError = {
-        status: result.status,
-        text: errText,
-        model: model
-      };
+      lastError = { status: result.status, text: errText, model: model };
 
-      // Последняя попытка — возвращаем ошибку
       if (attempt === maxAttempts) {
         return {
           success: false,
           status: result.status,
-          error: "AI временно перегружен. Попробуйте через 1-2 минуты.",
+          error: "AI временно перегружен. Попробуйте через минуту или задайте короткий вопрос.",
           details: errText,
           attempts: attempt
         };
       }
 
-      // Ждём перед следующей попыткой: 1 сек → 3 сек
-      const delayMs = attempt === 1 ? 1000 : 3000;
+      // Уменьшенные задержки между попытками: 500мс → 1сек (было 1сек → 3сек)
+      const delayMs = attempt === 1 ? 500 : 1000;
       await sleep(delayMs);
 
     } catch (err) {
-      // Network error / timeout
-      lastError = {
-        text: err && err.message ? err.message : String(err),
-        model: model
-      };
+      lastError = { text: err && err.message ? err.message : String(err), model: model };
 
       if (err && err.name === "AbortError") {
         if (attempt === maxAttempts) {
           return {
             success: false,
-            error: "⏱ AI не успел ответить за отведённое время. Попробуйте короче запрос.",
+            error: "⏱ AI не успевает ответить. Задайте вопрос короче или попробуйте позже.",
             attempts: attempt
           };
         }
@@ -336,15 +319,12 @@ async function callWithRetryAndFallback(apiKey, requestBody) {
         };
       }
 
-      const delayMs = attempt === 1 ? 1000 : 3000;
+      const delayMs = attempt === 1 ? 500 : 1000;
       await sleep(delayMs);
     }
   }
 
-  return {
-    success: false,
-    error: "Не удалось получить ответ AI после " + maxAttempts + " попыток"
-  };
+  return { success: false, error: "Не удалось получить ответ AI" };
 }
 
 // ═══════════════════════════════════════════
@@ -360,7 +340,7 @@ exports.handler = async function(event) {
   if (!apiKey) {
     return {
       statusCode: 500,
-      headers: corsHeaders(),
+      headers: { ...corsHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ error: "ANTHROPIC_API_KEY не задан" })
     };
   }
@@ -369,11 +349,16 @@ exports.handler = async function(event) {
   try {
     body = JSON.parse(event.body || "{}");
   } catch (e) {
-    return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid JSON" }) };
+    return { 
+      statusCode: 400, 
+      headers: { ...corsHeaders(), "Content-Type": "application/json" }, 
+      body: JSON.stringify({ error: "Invalid JSON" }) 
+    };
   }
 
+  // Ограничиваем последние 10 сообщений и контекст
   const messages = (body.messages || []).slice(-10);
-  const contextText = (body.contextText || "").slice(0, 2000);
+  const contextText = (body.contextText || "").slice(0, 1500);  // было 2000
   const enableTools = body.enableTools !== false;
 
   let finalSystem = SYSTEM_PROMPT;
@@ -381,8 +366,9 @@ exports.handler = async function(event) {
     finalSystem += "\n\n📊 КОНТЕКСТ:\n" + contextText;
   }
 
+  // УМЕНЬШЕНО: 1500 токенов вместо 2000 → быстрее генерация
   const requestBody = {
-    max_tokens: 2000,
+    max_tokens: 1500,
     system: finalSystem,
     messages: messages
   };
@@ -391,12 +377,12 @@ exports.handler = async function(event) {
     requestBody.tools = TOOLS;
   }
 
-  // Вызываем с retry-логикой
   const result = await callWithRetryAndFallback(apiKey, requestBody);
 
   if (!result.success) {
+    // Всегда возвращаем JSON, даже при ошибке
     return {
-      statusCode: result.status || 500,
+      statusCode: result.status || 503,
       headers: { ...corsHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
         error: result.error,
@@ -410,10 +396,9 @@ exports.handler = async function(event) {
   const textBlocks = (data.content || []).filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; });
   const toolUses = (data.content || []).filter(function(b) { return b.type === "tool_use"; });
 
-  // Если использовали fallback, добавим небольшое уведомление
   let metaInfo = "";
   if (result.model_used === FALLBACK_MODEL) {
-    metaInfo = "\n\n_(использована резервная AI-модель из-за перегрузки основной)_";
+    metaInfo = "\n\n_(использована резервная AI-модель)_";
   }
 
   return {
