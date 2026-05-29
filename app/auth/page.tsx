@@ -322,6 +322,11 @@ function AuthForm() {
         НДС 16% • ИПН 10%/15% • ОПВ 10% • МРП 4 325 ₸
         <br />
         Все расчёты по Налоговому Кодексу РК 2026
+        <br />
+        <span className="mt-2 inline-flex gap-3 justify-center">
+          <a href="/legal/terms" className="no-underline" style={{ color: "var(--t2)" }}>Оферта</a>
+          <a href="/legal/privacy" className="no-underline" style={{ color: "var(--t2)" }}>Конфиденциальность</a>
+        </span>
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ import NotificationBell from "@/components/NotificationBell";
 import JanaraButton from "@/components/JanaraButton";
 import SubscriptionBanner from "@/components/SubscriptionBanner";
 import ScannerButton from "@/components/ScannerButton";
+import ReadOnlyFormGuard from "@/components/ReadOnlyFormGuard";
+import { ReadOnlyProvider } from "@/lib/read-only-context";
 
 import { isPlatformAdmin } from "@/lib/platform-admin";
 const STORAGE_EXPANDED = "finerp-sidebar-expanded";
@@ -115,6 +117,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
+    <ReadOnlyProvider>
     <div className="min-h-screen flex" style={{ background: "var(--bg)", color: "var(--t1)", transition: "background 0.3s, color 0.3s" }}>
       <aside className="flex flex-col flex-shrink-0 transition-all duration-300" style={{ width: collapsed ? 56 : 240, background: "var(--sidebar)", borderRight: "1px solid var(--brd)" }}>
 
@@ -318,12 +321,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </header>
         <div className="flex-1 overflow-auto p-6">
           <SubscriptionBanner />
-          {children}
+          <ReadOnlyFormGuard>{children}</ReadOnlyFormGuard>
         </div>
       </main>
 
       {/* Глобальная плавающая кнопка Жанары на всех страницах */}
       <JanaraButton />
     </div>
+    </ReadOnlyProvider>
   );
 }

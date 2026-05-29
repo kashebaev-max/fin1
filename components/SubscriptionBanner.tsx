@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { getSubscriptionInfo, getWarningLevel, type SubscriptionInfo } from "@/lib/subscription";
+import { useReadOnlyOptional } from "@/lib/read-only-context";
 
 const BANNER_COLORS = {
   none:     { bg: "transparent", text: "transparent", border: "transparent" },
@@ -139,14 +140,20 @@ interface ActionButtonProps {
 
 export function ActionGuardButton({ children, onClick, className, style, disabled }: ActionButtonProps) {
   const router = useRouter();
-  const { isReadOnly, loading } = useReadOnlyGuard();
+  const ctx = useReadOnlyOptional();
+  const fallback = useReadOnlyGuard();
+  const isReadOnly = ctx?.isReadOnly ?? fallback.isReadOnly;
+  const loading = ctx?.loading ?? fallback.loading;
 
   function handleClick() {
     if (isReadOnly) {
-      const ok = confirm(
-        "⛔ Действие заблокировано\n\nВаша подписка истекла или закончился пробный период. Доступно только просмотр данных.\n\nХотите перейти к оформлению подписки?"
-      );
-      if (ok) router.push("/dashboard/subscription");
+      if (ctx) ctx.promptSubscribe();
+      else {
+        const ok = confirm(
+          "⛔ Действие заблокировано\n\nВаша подписка истекла или закончился пробный период. Доступно только просмотр данных.\n\nХотите перейти к оформлению подписки?"
+        );
+        if (ok) router.push("/dashboard/subscription");
+      }
       return;
     }
     onClick();

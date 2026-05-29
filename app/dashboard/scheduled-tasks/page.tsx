@@ -212,7 +212,14 @@ export default function ScheduledTasksPage() {
           result = await runOverdueCheck();
           break;
         default:
-          result = { status: "success", message: "Задача выполнена (заглушка)", processed: 0, warnings: 0, errors: 0, details: {} };
+          result = {
+            status: "error",
+            message: `Неизвестный тип задачи: ${t.task_type}. Обновите приложение или обратитесь в поддержку.`,
+            processed: 0,
+            warnings: 0,
+            errors: 1,
+            details: { task_type: t.task_type },
+          };
       }
     } catch (err: any) {
       result = { status: "error", message: `Ошибка: ${err.message}`, processed: 0, warnings: 0, errors: 1, details: {} };

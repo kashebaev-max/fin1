@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { findAction } from "@/lib/ai-actions";
+import { getSubscriptionInfo } from "@/lib/subscription";
 
 export interface ToolUse {
   id: string;
@@ -23,6 +24,15 @@ export async function executeToolUse(
   userId: string,
   toolUse: ToolUse
 ): Promise<ToolResult> {
+  const sub = await getSubscriptionInfo(supabase, userId);
+  if (sub?.is_read_only) {
+    return {
+      tool_use_id: toolUse.id,
+      content: "⛔ Подписка истекла. Оформите подписку, чтобы AI создавал записи в системе.",
+      success: false,
+    };
+  }
+
   const action = findAction(toolUse.name);
 
   if (!action) {
