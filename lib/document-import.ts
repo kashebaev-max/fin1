@@ -118,8 +118,12 @@ export async function importScannedDocument(
   const errors: string[] = [];
   
   // Получаем профиль чтобы определить нашу роль
-  const { data: profile } = await supabase.from("profiles").select("bin").eq("id", userId).single();
-  const ourBin = profile?.bin;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("company_bin")
+    .eq("id", userId)
+    .single();
+  const ourBin = profile?.company_bin;
 
   // Определяем кого создавать как контрагента
   let role: "seller" | "buyer" = options.counterpartyRole === "buyer" ? "buyer" : "seller";

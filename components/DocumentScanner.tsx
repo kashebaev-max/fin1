@@ -3,6 +3,16 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import { importScannedDocument } from "@/lib/document-import";
+import {
+  callScanDocument,
+  fileToBase64,
+  insertScanProcessing,
+  mapToRecognitionResult,
+  updateScanFailed,
+  updateScanParsed,
+} from "@/lib/scan-document-api";
+import { useReadOnlyOptional } from "@/lib/read-only-context";
 
 // Типы документов с иконками
 const DOC_TYPES: Record<string, { name: string; icon: string; color: string }> = {
@@ -24,6 +34,7 @@ interface ScannerProps {
 export default function DocumentScanner({ isOpen, onClose, onSuccess }: ScannerProps) {
   const router = useRouter();
   const supabase = createClient();
+  const readOnly = useReadOnlyOptional();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   
@@ -50,19 +61,6 @@ export default function DocumentScanner({ isOpen, onClose, onSuccess }: ScannerP
   function handleClose() {
     reset();
     onClose();
-  }
-
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64 = result.indexOf(",") !== -1 ? result.split(",")[1] : result;
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -96,167 +94,112 @@ export default function DocumentScanner({ isOpen, onClose, onSuccess }: ScannerP
 
     try {
       const base64 = await fileToBase64(selectedFile);
+      const api = await callScanDocument(base64, selectedFile.type, selectedFile.name);
 
-      const res = await fetch("/.netlify/functions/scan-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          file_data: base64,
-          file_type: selectedFile.type,
-          file_name: selectedFile.name,
-        }),
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      let recordId: string | null = null;
 
-      const data = await res.json();
+      if (user) {
+        recordId = await insertScanProcessing(supabase, user.id, {
+          name: selectedFile.name,
+          type: selectedFile.type,
+          size: selectedFile.size,
+        });
+        setScanId(recordId);
+      }
 
-      if (!res.ok || data.error) {
-        setError(data.error || "Не удалось распознать документ");
+      if (!api.parsed || !api.data) {
+        await updateScanFailed(
+          supabase,
+          recordId,
+          api.warning || "Структурированные данные не извлечены"
+        );
+        setError(
+          api.warning ||
+            "Не удалось извлечь данные. Сделайте фото чётче или загрузите PDF лучшего качества."
+        );
         setStep("error");
         return;
       }
 
-      // Сохраняем в БД
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: scan } = await supabase.from("document_scans").insert({
-          user_id: user.id,
-          file_name: selectedFile.name,
-          file_size: selectedFile.size,
-          file_type: selectedFile.type,
-          document_type: data.data?.document_type || "other",
-          parsed_data: data.data || null,
-          raw_text: data.raw_text || "",
-          status: "parsed",
-          ai_model_used: data.model_used,
-          ai_processing_time_ms: data.processing_time_ms,
-          ai_confidence_score: data.data?.confidence || null,
-        }).select().single();
-        
-        if (scan) setScanId(scan.id);
+      const recognition = mapToRecognitionResult(api.data);
+      if (user && recordId) {
+        await updateScanParsed(supabase, recordId, recognition, {
+          model_used: api.model_used,
+          processing_time_ms: api.processing_time_ms,
+          raw_text: api.raw_text,
+        });
       }
 
-      setParsedData(data.data || { raw_text: data.raw_text });
+      setParsedData({
+        document_type: recognition.doc_type,
+        confidence: recognition.confidence / 100,
+        supplier: recognition.data.seller,
+        buyer: recognition.data.buyer,
+        document_date: recognition.data.doc_date,
+        document_number: recognition.data.doc_number,
+        items: recognition.data.items?.map((it) => ({
+          name: it.name,
+          quantity: it.quantity,
+          unit: it.unit,
+          price: it.price,
+          amount: it.total,
+        })),
+        vat_rate: 16,
+        vat_amount: recognition.data.vat_amount,
+        total_amount: recognition.data.total_with_vat,
+        raw_observation: recognition.summary,
+      });
       setStep("result");
-    } catch (err: any) {
-      setError("Ошибка: " + err.message);
+    } catch (err: unknown) {
+      setError("Ошибка: " + (err instanceof Error ? err.message : String(err)));
       setStep("error");
     }
   }
 
   async function createInSystem() {
     if (!parsedData) return;
+    if (readOnly?.isReadOnly && !readOnly.ensureCanWrite()) return;
 
     setCreating(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Не авторизован");
+      if (!scanId) throw new Error("Запись сканирования не найдена");
 
-      const createdIds: any = {
-        counterparty_id: null,
-        nomenclature_ids: [] as string[],
-        order_id: null,
-        journal_entry_ids: [] as string[],
-      };
+      const recognition = mapToRecognitionResult({
+        document_type: parsedData.document_type,
+        confidence: parsedData.confidence,
+        supplier: parsedData.supplier,
+        buyer: parsedData.buyer,
+        document_date: parsedData.document_date,
+        document_number: parsedData.document_number,
+        items: parsedData.items,
+        vat_rate: parsedData.vat_rate,
+        vat_amount: parsedData.vat_amount,
+        total_amount: parsedData.total_amount,
+        raw_observation: parsedData.raw_observation,
+      });
 
-      // 1. Создаём контрагента (поставщика)
-      if (parsedData.supplier?.name) {
-        const { data: existingCp } = await supabase
-          .from("counterparties")
-          .select("id")
-          .eq("user_id", user.id)
-          .ilike("name", parsedData.supplier.name)
-          .maybeSingle();
+      const importRes = await importScannedDocument(
+        supabase,
+        user.id,
+        scanId,
+        recognition.data,
+        recognition.suggested_action,
+        { counterpartyRole: "auto", createJournalEntry: true }
+      );
 
-        if (existingCp) {
-          createdIds.counterparty_id = existingCp.id;
-        } else {
-          const { data: newCp } = await supabase.from("counterparties").insert({
-            user_id: user.id,
-            name: parsedData.supplier.name,
-            bin: parsedData.supplier.bin || null,
-            address: parsedData.supplier.address || null,
-            counterparty_type: "supplier",
-            is_active: true,
-          }).select().single();
-          if (newCp) createdIds.counterparty_id = newCp.id;
-        }
+      if (!importRes.success) {
+        throw new Error(importRes.message);
       }
 
-      // 2. Создаём товары если есть
-      if (parsedData.items && Array.isArray(parsedData.items)) {
-        for (const item of parsedData.items) {
-          if (!item.name) continue;
-          
-          const { data: existingNom } = await supabase
-            .from("nomenclature")
-            .select("id")
-            .eq("user_id", user.id)
-            .ilike("name", item.name)
-            .maybeSingle();
-
-          if (existingNom) {
-            createdIds.nomenclature_ids.push(existingNom.id);
-          } else {
-            const { data: newNom } = await supabase.from("nomenclature").insert({
-              user_id: user.id,
-              name: item.name,
-              unit: item.unit || "шт",
-              purchase_price: item.price || 0,
-              sale_price: (item.price || 0) * 1.3,  // +30% наценка по умолчанию
-              quantity: item.quantity || 0,
-              vat_rate: parsedData.vat_rate || 16,
-              type: "product",
-            }).select().single();
-            if (newNom) createdIds.nomenclature_ids.push(newNom.id);
-          }
-        }
-      }
-
-      // 3. Создаём проводку поступления
-      if (parsedData.total_amount && createdIds.counterparty_id) {
-        const { data: entry } = await supabase.from("journal_entries").insert({
-          user_id: user.id,
-          entry_date: parsedData.document_date || new Date().toISOString().slice(0, 10),
-          debit_account: "1330",  // Запасы
-          credit_account: "3310",  // Кред. зад. поставщикам
-          amount: parsedData.total_amount,
-          description: `Поступление: ${parsedData.supplier?.name || "Поставщик"} (${parsedData.document_number || "без номера"})`,
-        }).select().single();
-        if (entry) createdIds.journal_entry_ids.push(entry.id);
-
-        // НДС если есть
-        if (parsedData.vat_amount && parsedData.vat_amount > 0) {
-          const { data: vatEntry } = await supabase.from("journal_entries").insert({
-            user_id: user.id,
-            entry_date: parsedData.document_date || new Date().toISOString().slice(0, 10),
-            debit_account: "1420",  // НДС к зачёту
-            credit_account: "3310",
-            amount: parsedData.vat_amount,
-            description: `НДС: ${parsedData.supplier?.name || "Поставщик"}`,
-          }).select().single();
-          if (vatEntry) createdIds.journal_entry_ids.push(vatEntry.id);
-        }
-      }
-
-      // 4. Обновляем scan
-      if (scanId) {
-        await supabase.from("document_scans").update({
-          status: "created",
-          created_counterparty_id: createdIds.counterparty_id,
-          created_nomenclature_ids: createdIds.nomenclature_ids,
-          created_journal_entry_ids: createdIds.journal_entry_ids,
-        }).eq("id", scanId);
-      }
-
-      // Закрываем и возвращаем результат
-      if (onSuccess) onSuccess({ parsedData, createdIds });
-      
-      alert(`✅ Создано:\n• Контрагент: ${createdIds.counterparty_id ? "1" : "0"}\n• Товаров: ${createdIds.nomenclature_ids.length}\n• Проводок: ${createdIds.journal_entry_ids.length}`);
-      
+      if (onSuccess) onSuccess({ parsedData, importRes });
+      alert(`✅ ${importRes.message}`);
       handleClose();
-    } catch (err: any) {
-      setError("Ошибка создания: " + err.message);
+    } catch (err: unknown) {
+      setError("Ошибка создания: " + (err instanceof Error ? err.message : String(err)));
       setStep("error");
     } finally {
       setCreating(false);

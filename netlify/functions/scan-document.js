@@ -284,7 +284,9 @@ exports.handler = async function(event) {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid JSON" }) };
   }
 
-  const { file_data, file_type, file_name } = body;
+  const file_data = body.file_data || body.fileBase64;
+  const file_type = body.file_type || body.fileType;
+  const file_name = body.file_name || body.fileName;
 
   if (!file_data || !file_type) {
     return {

@@ -4,16 +4,17 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { fmtMoney } from "@/lib/tax2026";
-import { importScannedDocument, type ExtractedData, type SuggestedAction } from "@/lib/document-import";
-
-interface RecognitionResult {
-  doc_type: string;
-  doc_type_label: string;
-  confidence: number;
-  summary: string;
-  data: ExtractedData;
-  suggested_action: SuggestedAction;
-}
+import { importScannedDocument } from "@/lib/document-import";
+import {
+  callScanDocument,
+  fileToBase64,
+  insertScanProcessing,
+  mapToRecognitionResult,
+  updateScanFailed,
+  updateScanParsed,
+  type RecognitionResult,
+} from "@/lib/scan-document-api";
+import { useReadOnlyOptional } from "@/lib/read-only-context";
 
 interface ScanRecord {
   id: string;
@@ -74,6 +75,7 @@ const ACCOUNTS_OPTIONS = [
 export default function DocumentScannerPage() {
   const supabase = createClient();
   const router = useRouter();
+  const readOnly = useReadOnlyOptional();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userId, setUserId] = useState("");
   const [scans, setScans] = useState<ScanRecord[]>([]);
@@ -110,26 +112,24 @@ export default function DocumentScannerPage() {
   }
 
   async function loadHistory(uid: string) {
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from("document_scans")
       .select("*")
       .eq("user_id", uid)
       .order("uploaded_at", { ascending: false })
       .limit(50);
-    setScans((data as ScanRecord[]) || []);
-  }
 
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const base64 = dataUrl.split(",")[1]; // Убираем "data:..;base64,"
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    if (error) {
+      const fallback = await supabase
+        .from("document_scans")
+        .select("*")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      data = fallback.data;
+    }
+
+    setScans((data as ScanRecord[]) || []);
   }
 
   async function handleFile(file: File) {
@@ -146,8 +146,8 @@ export default function DocumentScannerPage() {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Файл больше 10 МБ. Уменьшите размер или сожмите изображение.");
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Файл больше 5 МБ (лимит AI). Сожмите изображение или выберите область поменьше.");
       return;
     }
 
@@ -170,70 +170,62 @@ export default function DocumentScannerPage() {
       return;
     }
 
-    // Создаём запись о сканировании
-    const { data: scan, error: scanErr } = await supabase.from("document_scans").insert({
-      user_id: userId,
-      file_name: file.name,
-      file_type: file.type === "application/pdf" ? "pdf" : "image",
-      file_size_bytes: file.size,
-      status: "processing",
-    }).select("id").single();
-
-    if (scanErr || !scan) {
-      setError(`Ошибка БД: ${scanErr?.message}`);
-      setUploading(false);
-      return;
-    }
-    setScanId(scan.id);
+    const scanRecordId = await insertScanProcessing(supabase, userId, {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    });
+    setScanId(scanRecordId);
     setUploading(false);
 
-    // Распознаём
     setRecognizing(true);
     try {
-      const res = await fetch("/.netlify/functions/scan-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileBase64: base64, fileType: file.type }),
-      });
+      const api = await callScanDocument(base64, file.type, file.name);
 
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        await supabase.from("document_scans").update({
-          status: "failed",
-          error_message: data.error || `HTTP ${res.status}`,
-        }).eq("id", scan.id);
-        setError(`Ошибка распознавания: ${data.error || "неизвестная ошибка"}`);
+      if (!api.parsed || !api.data) {
+        await updateScanFailed(
+          supabase,
+          scanRecordId,
+          api.warning || "Не удалось разобрать JSON. Попробуйте более чёткое фото."
+        );
+        setError(
+          api.warning ||
+            "Документ распознан частично. Попробуйте другое фото или PDF с лучшим качеством."
+        );
         setRecognizing(false);
         return;
       }
 
-      const recognition: RecognitionResult = data;
+      const recognition = mapToRecognitionResult(api.data);
       setResult(recognition);
 
-      // Заполняем поля редактирования
-      setEditAmount(String(recognition.data.total_with_vat || recognition.data.total_without_vat || recognition.suggested_action?.amount || 0));
+      setEditAmount(
+        String(
+          recognition.data.total_with_vat ||
+            recognition.data.total_without_vat ||
+            recognition.suggested_action?.amount ||
+            0
+        )
+      );
       setEditDate(recognition.data.doc_date || new Date().toISOString().slice(0, 10));
-      setEditDebit(recognition.suggested_action?.debit_account || "1310");
+      setEditDebit(recognition.suggested_action?.debit_account || "1330");
       setEditCredit(recognition.suggested_action?.credit_account || "3310");
-      setEditDescription(`${recognition.doc_type_label}: ${recognition.data.seller?.name || recognition.data.buyer?.name || ""}` + (recognition.data.doc_number ? ` ${recognition.data.doc_number}` : ""));
+      setEditDescription(
+        `${recognition.doc_type_label}: ${recognition.data.seller?.name || recognition.data.buyer?.name || ""}` +
+          (recognition.data.doc_number ? ` ${recognition.data.doc_number}` : "")
+      );
 
-      // Сохраняем результат
-      await supabase.from("document_scans").update({
-        status: "recognized",
-        detected_doc_type: recognition.doc_type,
-        extracted_data: recognition.data as any,
-        ai_summary: recognition.summary,
-        confidence: recognition.confidence,
-        processed_at: new Date().toISOString(),
-      }).eq("id", scan.id);
-
-    } catch (err: any) {
-      await supabase.from("document_scans").update({
-        status: "failed",
-        error_message: err.message || String(err),
-      }).eq("id", scan.id);
-      setError(`Ошибка: ${err.message || err}`);
+      if (scanRecordId) {
+        await updateScanParsed(supabase, scanRecordId, recognition, {
+          model_used: api.model_used,
+          processing_time_ms: api.processing_time_ms,
+          raw_text: api.raw_text,
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await updateScanFailed(supabase, scanRecordId, msg);
+      setError(msg);
     } finally {
       setRecognizing(false);
     }
@@ -241,6 +233,7 @@ export default function DocumentScannerPage() {
 
   async function handleImport() {
     if (!result || !scanId) return;
+    if (readOnly?.isReadOnly && !readOnly.ensureCanWrite()) return;
     setImporting(true);
     setImportResult(null);
 
@@ -603,7 +596,7 @@ export default function DocumentScannerPage() {
                         <div className="text-[10px] mb-1" style={{ color: "var(--t2)" }}>{s.ai_summary}</div>
                       )}
                       <div className="text-[10px]" style={{ color: "var(--t3)" }}>
-                        {new Date(s.uploaded_at).toLocaleString("ru-RU")}
+                        {new Date(s.uploaded_at || (s as { created_at?: string }).created_at || "").toLocaleString("ru-RU")}
                         {s.extracted_data?.total_with_vat && ` · ${fmtMoney(s.extracted_data.total_with_vat)} ₸`}
                         {s.imported_at && " · ✓ импортировано"}
                       </div>
