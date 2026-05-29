@@ -354,22 +354,17 @@ function StepCard({ step, index, completed, onToggle, sectionColor }: {
 
             {/* Скриншот (плейсхолдер) */}
             {step.screenshot && (
-              <div className="rounded-lg mt-3 flex items-center justify-center" style={{
+              <div className="rounded-lg mt-3 overflow-hidden" style={{
                 background: "var(--card)",
-                border: "1px dashed var(--brd)",
+                border: "1px solid var(--brd)",
                 aspectRatio: "16 / 9",
-                color: "var(--t3)",
               }}>
-                {/* Если есть реальный скриншот — будет img */}
-                <img src={step.screenshot} alt={step.title}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling!.removeAttribute("hidden"); }}
-                  style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 8 }}
+                <img
+                  src={step.screenshot}
+                  alt={step.title}
+                  loading="lazy"
+                  style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                 />
-                <div hidden className="text-center p-4">
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>📸</div>
-                  <div className="text-[11px] font-bold">Скриншот будет добавлен</div>
-                  <div className="text-[10px] mt-0.5">{step.screenshot}</div>
-                </div>
               </div>
             )}
 
