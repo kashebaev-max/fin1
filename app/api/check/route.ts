@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeBinLocally } from "@/lib/kz-bin";
+import { analyzeBinLocally, type BinCheckResult, type CheckItem } from "@/lib/kz-bin";
 import { lookupOrganizationByBin } from "@/lib/bin-name-lookup";
 import { createServerSupabase } from "@/lib/supabase-server";
 
@@ -38,9 +38,9 @@ function extractJson(text: string): unknown | null {
 }
 
 function mergeNameFields(
-  base: ReturnType<typeof analyzeBinLocally>,
+  base: BinCheckResult,
   nameInfo: Awaited<ReturnType<typeof lookupOrganizationByBin>>
-) {
+): BinCheckResult {
   const organization_name = nameInfo.organization_name || base.organization_name || null;
   const name_source = nameInfo.name_source || base.name_source || null;
 
@@ -82,7 +82,7 @@ function normalizeResponse(
       valid: typeof o.valid === "boolean" ? o.valid : base.valid,
       type: String(o.type || base.type),
       registration_date: String(o.registration_date || base.registration_date),
-      checks: Array.isArray(o.checks) && o.checks.length > 0 ? (o.checks as typeof base.checks) : base.checks,
+      checks: Array.isArray(o.checks) && o.checks.length > 0 ? (o.checks as CheckItem[]) : base.checks,
       risk_level: String(o.risk_level || base.risk_level),
       recommendations:
         Array.isArray(o.recommendations) && o.recommendations.length > 0

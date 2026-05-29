@@ -119,7 +119,22 @@ export type CheckItem = {
   detail: string;
 };
 
-export function analyzeBinLocally(bin: string) {
+export type BinCheckResult = {
+  bin: string;
+  valid: boolean;
+  type: string;
+  registration_date: string;
+  organization_name: string | null;
+  name_source: string | null;
+  address: string | null;
+  director: string | null;
+  checks: CheckItem[];
+  risk_level: string;
+  recommendations: string[];
+  links: { name: string; url: string }[];
+};
+
+export function analyzeBinLocally(bin: string): BinCheckResult {
   const parsed = parseKzBin(bin);
   if (!parsed) {
     return {
@@ -131,7 +146,7 @@ export function analyzeBinLocally(bin: string) {
       name_source: null,
       address: null,
       director: null,
-      checks: [{ name: "Формат БИН", status: "error" as const, detail: "БИН должен содержать ровно 12 цифр" }],
+      checks: [{ name: "Формат БИН", status: "error", detail: "БИН должен содержать ровно 12 цифр" }] satisfies CheckItem[],
       risk_level: "unknown",
       recommendations: [] as string[],
       links: buildOfficialLinks(bin),
