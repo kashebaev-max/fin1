@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/generate-landing-images.mjs && next build",
+    "landing:images": "node scripts/generate-landing-images.mjs",
     "start": "next start",
     "lint": "next lint"
   },
