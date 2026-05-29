@@ -35,6 +35,9 @@ BEGIN
 END $$;
 
 -- ─── Сводка для дашборда (RPC) ───
+-- Старая версия функции с другим форматом — удаляем перед созданием
+DROP FUNCTION IF EXISTS public.get_analytics_summary(timestamptz, timestamptz);
+
 CREATE OR REPLACE FUNCTION public.get_analytics_summary(
   p_start_date timestamptz,
   p_end_date timestamptz
