@@ -87,38 +87,36 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
       </header>
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 py-16 lg:py-20">
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-          <div className="text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6" style={{ background: landing.heroBadge.bg, border: `1px solid ${landing.heroBadge.border}` }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: landing.heroBadge.color, letterSpacing: "0.05em" }}>⚡ НОВЫЙ НАЛОГОВЫЙ КОДЕКС РК 2026 • ЗРК 214-VIII</span>
-            </div>
-            <h1 className="text-4xl lg:text-5xl font-extrabold mb-6" style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}>
-              Умный помощник<br />
-              <span style={{ background: landing.gradientText, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                для вашего бухгалтера
-              </span>
-            </h1>
-            <p className="text-lg mb-8 max-w-xl mx-auto lg:mx-0" style={{ color: "var(--t2)" }}>
-              Современная ERP-система для бизнеса Казахстана. Всё по НК РК 2026.
-              Автоматизирует рутину, контролирует сроки, помогает не упустить важное.
-            </p>
-            <div className="flex flex-wrap gap-3 justify-center lg:justify-start mb-6">
-              <Link href="/auth" className="no-underline">
-                <button className="px-8 py-4 rounded-xl text-white font-semibold border-none cursor-pointer" style={{ background: landing.gradient, fontSize: 15 }}>
-                  Начать бесплатно →
-                </button>
-              </Link>
-              <a href="#features" className="no-underline">
-                <button className="px-8 py-4 rounded-xl font-semibold cursor-pointer" style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t1)", fontSize: 15 }}>
-                  Посмотреть возможности
-                </button>
-              </a>
-            </div>
-            <div className="text-xs" style={{ color: "var(--t3)" }}>
-              ✓ Без установки &nbsp;&nbsp; ✓ В браузере &nbsp;&nbsp; ✓ Защита данных &nbsp;&nbsp; ✓ RU / KZ
-            </div>
-          </div>
+      <section className="max-w-6xl mx-auto px-6 py-20 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6" style={{ background: landing.heroBadge.bg, border: `1px solid ${landing.heroBadge.border}` }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: landing.heroBadge.color, letterSpacing: "0.05em" }}>⚡ НОВЫЙ НАЛОГОВЫЙ КОДЕКС РК 2026 • ЗРК 214-VIII</span>
+        </div>
+        <h1 className="text-5xl font-extrabold mb-6" style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+          Умный помощник<br />
+          <span style={{ background: landing.gradientText, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            для вашего бухгалтера
+          </span>
+        </h1>
+        <p className="text-lg mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
+          Современная ERP-система для бизнеса Казахстана. Всё по НК РК 2026.<br />
+          Автоматизирует рутину, контролирует сроки, помогает не упустить важное.
+        </p>
+        <div className="flex gap-3 justify-center mb-6">
+          <Link href="/auth" className="no-underline">
+            <button className="px-8 py-4 rounded-xl text-white font-semibold border-none cursor-pointer" style={{ background: landing.gradient, fontSize: 15 }}>
+              Начать бесплатно →
+            </button>
+          </Link>
+          <a href="#features" className="no-underline">
+            <button className="px-8 py-4 rounded-xl font-semibold cursor-pointer" style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t1)", fontSize: 15 }}>
+              Посмотреть возможности
+            </button>
+          </a>
+        </div>
+        <div className="text-xs mb-10" style={{ color: "var(--t3)" }}>
+          ✓ Без установки &nbsp;&nbsp; ✓ Работает в браузере &nbsp;&nbsp; ✓ Данные под защитой &nbsp;&nbsp; ✓ Поддержка на русском и казахском
+        </div>
+        <div className="max-w-4xl mx-auto">
           <LandingVisual src={images.hero} alt="Главная панель Finstat — KPI, графики и рекомендации Жанары" priority />
         </div>
       </section>
@@ -264,38 +262,37 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
 
       {/* AI Жанара spotlight */}
       <section id="ai" className="max-w-6xl mx-auto px-6 py-16">
-        <div className="rounded-2xl p-8 lg:p-12" style={{ background: landing.aiBlock.bg, border: `1px solid ${landing.aiBlock.border}` }}>
-          <div className="text-center mb-10">
-            <div className="text-xs font-bold tracking-widest mb-3" style={{ color: landing.aiBlock.label }}>✦ AI ЖАНАРА</div>
-            <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>Умный AI-ассистент для бухгалтера</h2>
-            <p className="text-base max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
-              Жанара не просто отвечает на вопросы — она <b>видит все процессы</b> в вашей системе,
-              анализирует данные и <b>подсказывает, что важно не упустить</b>.
-            </p>
+        <div className="rounded-2xl p-12 text-center" style={{ background: landing.aiBlock.bg, border: `1px solid ${landing.aiBlock.border}` }}>
+          <div className="text-xs font-bold tracking-widest mb-3" style={{ color: landing.aiBlock.label }}>✦ AI ЖАНАРА</div>
+          <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>Умный AI-ассистент для бухгалтера</h2>
+          <p className="text-base mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
+            Жанара не просто отвечает на вопросы — она <b>видит все процессы</b> в вашей системе,<br />
+            анализирует данные и <b>подсказывает, что важно не упустить</b>.
+          </p>
+
+          <div className="mb-10 max-w-3xl mx-auto text-left">
+            <LandingVisual src={images.zhanara} alt="Чат с AI Жанарой — вопросы по дебиторке и рекомендации" />
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8 items-center mb-10">
-            <LandingVisual src={images.zhanara} alt="Чат с AI Жанарой — вопросы по дебиторке и рекомендации" />
-            <div className="grid gap-3">
-              <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-                <div className="text-xl mb-2">💬</div>
-                <div className="text-sm font-bold mb-1">Консультации</div>
-                <div className="text-xs" style={{ color: "var(--t3)" }}>По налогам, зарплатам, проводкам, отчётности. Все нормы НК РК 2026.</div>
-              </div>
-              <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-                <div className="text-xl mb-2">👁</div>
-                <div className="text-sm font-bold mb-1">Мониторинг</div>
-                <div className="text-xs" style={{ color: "var(--t3)" }}>Видит документы, проводки, остатки, зарплаты — анализ в реальном времени.</div>
-              </div>
-              <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-                <div className="text-xl mb-2">🔔</div>
-                <div className="text-sm font-bold mb-1">Напоминания</div>
-                <div className="text-xs" style={{ color: "var(--t3)" }}>Сроки ФНО, платежи, дебиторка — ничего не пропустите.</div>
-              </div>
+          <div className="grid grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
+            <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-xl mb-2">💬</div>
+              <div className="text-sm font-bold mb-1" style={{ color: "var(--t1)" }}>Консультации</div>
+              <div className="text-xs" style={{ color: "var(--t3)" }}>По налогам, зарплатам, проводкам, отчётности. Все нормы НК РК 2026.</div>
+            </div>
+            <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-xl mb-2">👁</div>
+              <div className="text-sm font-bold mb-1" style={{ color: "var(--t1)" }}>Мониторинг</div>
+              <div className="text-xs" style={{ color: "var(--t3)" }}>Видит документы, проводки, остатки, зарплаты — анализирует ваш бизнес в реальном времени.</div>
+            </div>
+            <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-xl mb-2">🔔</div>
+              <div className="text-sm font-bold mb-1" style={{ color: "var(--t1)" }}>Напоминания</div>
+              <div className="text-xs" style={{ color: "var(--t3)" }}>Предупреждает о сроках сдачи ФНО, платежах, дебиторке — ничего не пропустите.</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl mx-auto mb-6">
+          <div className="grid grid-cols-3 gap-3 max-w-3xl mx-auto mb-6">
             {[
               "«Что у меня по дебиторке?»",
               "«Когда сдавать ФНО 300?»",
@@ -304,7 +301,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
               <div key={i} className="p-3 rounded-lg text-xs italic" style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t2)" }}>{q}</div>
             ))}
           </div>
-          <p className="text-xs text-center" style={{ color: "var(--t3)" }}>Уникальный AI-ассистент в Казахстане с полным доступом к вашим данным</p>
+          <div className="text-xs" style={{ color: "var(--t3)" }}>Уникальный AI-ассистент в Казахстане с полным доступом к вашим данным</div>
         </div>
       </section>
 
@@ -420,14 +417,11 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
 
       {/* Features */}
       <section id="features" className="max-w-6xl mx-auto px-6 py-16">
-        <div className="text-center mb-8">
+        <div className="text-center mb-12">
           <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Всё в одной системе</h2>
           <p className="text-sm" style={{ color: "var(--t2)" }}>13 модулей связаны между собой — один документ обновляет всю систему</p>
         </div>
-        <div className="mb-10 max-w-4xl mx-auto hidden md:block">
-          <LandingVisual src={images.hero} alt="Обзор модулей Finstat в одном интерфейсе" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {[
             { icon: "◈", title: "12 типов документов", desc: "Счета, счёт-фактуры (ст.412 НК), накладные, акты, договоры, ПКО/РКО, платёжные поручения, ТТН" },
             { icon: "▦", title: "Полная бухгалтерия", desc: "Журнал проводок, ОСВ, анализ счёта, акт сверки, баланс — всё автоматически из документов" },
