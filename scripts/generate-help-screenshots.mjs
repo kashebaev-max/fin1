@@ -535,6 +535,7 @@ function sceneOsv(title) {
 function pickScene(rel) {
   if (rel.startsWith("01-registration/")) {
     if (rel.includes("homepage")) return "landing";
+    if (rel.includes("06-dashboard")) return "dashboard";
     return "auth";
   }
   if (rel.startsWith("15-sono-submit/")) return "portal";
