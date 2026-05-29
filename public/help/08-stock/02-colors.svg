@@ -11,25 +11,42 @@
   <circle cx="20" cy="18" r="6" fill="#EF4444"/><circle cx="40" cy="18" r="6" fill="#F59E0B"/><circle cx="60" cy="18" r="6" fill="#10B981"/>
   <text x="90" y="22" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="12">Finstat.kz</text>
   
+  
   <rect x="0" y="36" width="200" height="684" fill="#141720"/>
-  <text x="24" y="72" fill="url(#g)" font-size="18" font-weight="700" font-family="Segoe UI">F</text>
+  <text x="24" y="68" fill="url(#g)" font-size="18" font-weight="700" font-family="Segoe UI, Arial, sans-serif">F</text>
+  <rect x="12" y="52" width="176" height="28" rx="6" fill="#1a1d27" stroke="#2a2f3d"/>
+  <text x="24" y="71" fill="#6b7280" font-size="10" font-family="Segoe UI, Arial, sans-serif">🔍 контрагент</text>
+  <text x="24" y="80" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">⬡ Главная</text><text x="24" y="108" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">👥 Контрагенты</text><text x="24" y="136" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📋 Заказы</text><rect x="8" y="150" width="184" height="24" rx="6" fill="#6366F125"/><text x="24" y="164" fill="#6366F1" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="600">📦 Склад</text><text x="24" y="192" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📒 Проводки</text><text x="24" y="220" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">◎ Сотрудники</text><text x="24" y="248" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📊 СОНО</text>
   
-  <text x="24" y="80" fill="#e8eaef" font-size="12" font-family="Segoe UI">⬡ Главная</text>
-  <text x="24" y="110" fill="#9ca3af" font-size="11" font-family="Segoe UI">Контрагенты</text>
-  <text x="24" y="135" fill="#9ca3af" font-size="11" font-family="Segoe UI">📦 Склад</text>
-  <text x="24" y="160" fill="#9ca3af" font-size="11" font-family="Segoe UI">📊 Налоги</text>
   <rect x="220" y="56" width="1040" height="48" rx="8" fill="#1a1d27" stroke="#2a2f3d"/>
-  <text x="240" y="86" fill="#e8eaef" font-size="14" font-weight="600" font-family="Segoe UI">Модуль</text>
+  <text x="240" y="86" fill="#e8eaef" font-size="14" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Остатки на складе</text>
+  <text x="1160" y="86" fill="#9ca3af" font-size="11" font-family="Segoe UI, Arial, sans-serif">ТОО «Демо» · НДС</text>
+  <circle cx="1224" cy="80" r="14" fill="#F59E0B30" stroke="#F59E0B"/>
+  <text x="1224" y="84" text-anchor="middle" fill="#F59E0B" font-size="12">🔔</text>
   
-  <rect x="220" y="120" width="1040" height="580" rx="12" fill="#1a1d27" stroke="#2a2f3d"/>
-  <rect x="240" y="145" width="200" height="70" rx="8" fill="#0f1117"/>
-  <rect x="460" y="145" width="200" height="70" rx="8" fill="#0f1117"/>
-  <rect x="240" y="240" width="1000" height="180" rx="8" fill="#0f1117" stroke="#2a2f3d"/>
-  <line x1="260" y1="280" x2="900" y2="280" stroke="#2a2f3d" stroke-width="1"/>
-  <line x1="260" y1="320" x2="900" y2="320" stroke="#2a2f3d" stroke-width="1"/>
-  <line x1="260" y1="360" x2="900" y2="360" stroke="#2a2f3d" stroke-width="1"/>
   
-  <text x="48" y="640" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">colors</text>
+  <rect x="240" y="118" width="520" height="240" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="254" y="138" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Остатки</text>
+  <text x="252" y="154" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Товар</text><text x="376" y="154" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Остаток</text><text x="500" y="154" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Мин.</text><text x="624" y="154" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Статус</text>
+  <text x="252" y="166" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">Бумага А4</text><text x="376" y="166" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">8 шт</text><text x="500" y="166" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">20</text><text x="624" y="166" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">🔴 мало</text><line x1="248" y1="176" x2="752" y2="176" stroke="#2a2f3d" opacity="0.6"/><text x="252" y="194" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">Картридж HP</text><text x="376" y="194" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">45 шт</text><text x="500" y="194" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">10</text><text x="624" y="194" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">🟢 норма</text><line x1="248" y1="204" x2="752" y2="204" stroke="#2a2f3d" opacity="0.6"/><text x="252" y="222" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">Степлер</text><text x="376" y="222" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">3 шт</text><text x="500" y="222" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">5</text><text x="624" y="222" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">🟡 внимание</text><line x1="248" y1="232" x2="752" y2="232" stroke="#2a2f3d" opacity="0.6"/><text x="252" y="250" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">Папки</text><text x="376" y="250" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">120 шт</text><text x="500" y="250" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">30</text><text x="624" y="250" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">🟢 норма</text>
   
-  <text x="1264" y="710" text-anchor="end" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">Иллюстрация интерфейса</text>
+  <rect x="780" y="118" width="428" height="240" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="794" y="138" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Статусы остатков, %</text>
+  
+    <rect x="800" y="154" width="121.33333333333334" height="180" rx="4" fill="#10B981" opacity="0.9"/>
+    <text x="860.6666666666666" y="350" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Норма</text>
+    <rect x="929.3333333333334" y="269.7142857142857" width="121.33333333333334" height="64.28571428571429" rx="4" fill="#F59E0B" opacity="0.9"/>
+    <text x="990" y="350" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Мало</text>
+    <rect x="1058.6666666666667" y="313.42857142857144" width="121.33333333333334" height="20.57142857142857" rx="4" fill="#EF4444" opacity="0.9"/>
+    <text x="1119.3333333333335" y="350" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Нет</text>
+  <line x1="794" y1="334" x2="1194" y2="334" stroke="#2a2f3d"/>
+  
+  <rect x="240" y="380" width="968" height="200" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="254" y="398" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Движение товара за неделю</text>
+  <path d="M288,408 L438.66666666666663,429.6 L589.3333333333333,448.32 L740,454.08 L890.6666666666666,472.8 L1041.3333333333333,482.88 L1192,491.52  L 1192,552 L 288,552 Z" fill="#6366F1" opacity="0.15"/>
+  <path d="M288,408 L438.66666666666663,429.6 L589.3333333333333,448.32 L740,454.08 L890.6666666666666,472.8 L1041.3333333333333,482.88 L1192,491.52 " fill="none" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="288" y1="552" x2="1192" y2="552" stroke="#2a2f3d"/>
+  <text x="48" y="648" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="600">colors</text>
+  
+  <text x="1264" y="710" text-anchor="end" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">Демо-данные для обучения</text>
 </svg>

@@ -11,25 +11,73 @@
   <circle cx="20" cy="18" r="6" fill="#EF4444"/><circle cx="40" cy="18" r="6" fill="#F59E0B"/><circle cx="60" cy="18" r="6" fill="#10B981"/>
   <text x="90" y="22" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="12">Finstat.kz</text>
   
+  
   <rect x="0" y="36" width="200" height="684" fill="#141720"/>
-  <text x="24" y="72" fill="url(#g)" font-size="18" font-weight="700" font-family="Segoe UI">F</text>
+  <text x="24" y="68" fill="url(#g)" font-size="18" font-weight="700" font-family="Segoe UI, Arial, sans-serif">F</text>
+  <rect x="12" y="52" width="176" height="28" rx="6" fill="#1a1d27" stroke="#2a2f3d"/>
+  <text x="24" y="71" fill="#6b7280" font-size="10" font-family="Segoe UI, Arial, sans-serif">🔍 контрагент</text>
+  <rect x="8" y="66" width="184" height="24" rx="6" fill="#6366F125"/><text x="24" y="80" fill="#6366F1" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="600">⬡ Главная</text><text x="24" y="108" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">👥 Контрагенты</text><text x="24" y="136" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📋 Заказы</text><text x="24" y="164" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📦 Склад</text><text x="24" y="192" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📒 Проводки</text><text x="24" y="220" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">◎ Сотрудники</text><text x="24" y="248" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📊 СОНО</text>
   
-  <text x="24" y="80" fill="#e8eaef" font-size="12" font-family="Segoe UI">⬡ Главная</text>
-  <text x="24" y="110" fill="#9ca3af" font-size="11" font-family="Segoe UI">Контрагенты</text>
-  <text x="24" y="135" fill="#9ca3af" font-size="11" font-family="Segoe UI">📦 Склад</text>
-  <text x="24" y="160" fill="#9ca3af" font-size="11" font-family="Segoe UI">📊 Налоги</text>
+  
   <rect x="220" y="56" width="1040" height="48" rx="8" fill="#1a1d27" stroke="#2a2f3d"/>
-  <text x="240" y="86" fill="#e8eaef" font-size="14" font-weight="600" font-family="Segoe UI">Модуль</text>
+  <text x="240" y="86" fill="#e8eaef" font-size="14" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Главная</text>
+  <text x="1160" y="86" fill="#9ca3af" font-size="11" font-family="Segoe UI, Arial, sans-serif">ТОО «Демо» · НДС</text>
+  <circle cx="1224" cy="80" r="14" fill="#F59E0B30" stroke="#F59E0B"/>
+  <text x="1224" y="84" text-anchor="middle" fill="#F59E0B" font-size="12">🔔</text>
   
-  <rect x="220" y="120" width="1040" height="580" rx="12" fill="#1a1d27" stroke="#2a2f3d"/>
-  <rect x="240" y="145" width="200" height="70" rx="8" fill="#0f1117"/>
-  <rect x="460" y="145" width="200" height="70" rx="8" fill="#0f1117"/>
-  <rect x="240" y="240" width="1000" height="180" rx="8" fill="#0f1117" stroke="#2a2f3d"/>
-  <line x1="260" y1="280" x2="900" y2="280" stroke="#2a2f3d" stroke-width="1"/>
-  <line x1="260" y1="320" x2="900" y2="320" stroke="#2a2f3d" stroke-width="1"/>
-  <line x1="260" y1="360" x2="900" y2="360" stroke="#2a2f3d" stroke-width="1"/>
   
-  <text x="48" y="640" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Шапка</text>
+  <rect x="240" y="118" width="230" height="72" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="254" y="140" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">Касса</text>
+  <text x="254" y="166" fill="#10B981" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">1 240 000 ₸</text>
+  <text x="254" y="182" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="9">↑ 12% к прошлому мес.</text>
   
-  <text x="1264" y="710" text-anchor="end" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">Иллюстрация интерфейса</text>
+  <rect x="486" y="118" width="230" height="72" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="500" y="140" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">Банк</text>
+  <text x="500" y="166" fill="#3B82F6" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">8 560 000 ₸</text>
+  <text x="500" y="182" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="9">остаток на 29.05</text>
+  
+  <rect x="732" y="118" width="230" height="72" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="746" y="140" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">Дебиторка</text>
+  <text x="746" y="166" fill="#F59E0B" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">2 310 720 ₸</text>
+  <text x="746" y="182" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="9">3 контрагента</text>
+  
+  <rect x="978" y="118" width="230" height="72" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="992" y="140" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">НДС к уплате</text>
+  <text x="992" y="166" fill="#A855F7" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">486 400 ₸</text>
+  <text x="992" y="182" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="9">1 кв. 2026</text>
+  
+  <rect x="240" y="204" width="520" height="200" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="254" y="224" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Выручка, тыс. ₸</text>
+  
+    <rect x="260" y="298.3333333333333" width="88" height="81.66666666666667" rx="4" fill="#6366F1" opacity="0.9"/>
+    <text x="304" y="396" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Янв</text>
+    <rect x="356" y="267.22222222222223" width="88" height="112.77777777777779" rx="4" fill="#6366F1" opacity="0.9"/>
+    <text x="400" y="396" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Фев</text>
+    <rect x="452" y="280.8333333333333" width="88" height="99.16666666666667" rx="4" fill="#6366F1" opacity="0.9"/>
+    <text x="496" y="396" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Мар</text>
+    <rect x="548" y="240" width="88" height="140" rx="4" fill="#A855F7" opacity="0.9"/>
+    <text x="592" y="396" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Апр</text>
+    <rect x="644" y="247.77777777777777" width="88" height="132.22222222222223" rx="4" fill="#A855F7" opacity="0.9"/>
+    <text x="688" y="396" text-anchor="middle" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9">Май</text>
+  <line x1="254" y1="380" x2="746" y2="380" stroke="#2a2f3d"/>
+  
+  <rect x="780" y="204" width="428" height="200" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="794" y="224" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Главные должники</text>
+  <text x="792" y="240" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Контрагент</text><text x="926.6666666666666" y="240" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Сумма</text><text x="1061.3333333333333" y="240" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Срок</text>
+  <text x="792" y="252" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">ТОО «Альфа»</text><text x="926.6666666666666" y="252" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">2 310 720 ₸</text><text x="1061.3333333333333" y="252" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">просроч. 12 дн.</text><line x1="788" y1="262" x2="1200" y2="262" stroke="#2a2f3d" opacity="0.6"/><text x="792" y="280" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">ИП Сейтова</text><text x="926.6666666666666" y="280" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">580 000 ₸</text><text x="1061.3333333333333" y="280" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">до 05.06</text><line x1="788" y1="290" x2="1200" y2="290" stroke="#2a2f3d" opacity="0.6"/><text x="792" y="308" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">ТОО «Бета»</text><text x="926.6666666666666" y="308" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">120 000 ₸</text><text x="1061.3333333333333" y="308" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">до 15.06</text>
+  
+  <rect x="240" y="418" width="520" height="160" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="254" y="436" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Оборот за 12 мес., млн ₸</text>
+  <path d="M288,522.2666666666667 L329.45454545454544,508.4 L370.9090909090909,515.3333333333334 L412.3636363636364,499.15555555555557 L453.8181818181818,485.2888888888889 L495.27272727272725,494.5333333333333 L536.7272727272727,476.0444444444444 L578.1818181818182,480.6666666666667 L619.6363636363636,469.1111111111111 L661.090909090909,462.1777777777778 L702.5454545454545,452.93333333333334 L744,446  L 744,550 L 288,550 Z" fill="#6366F1" opacity="0.15"/>
+  <path d="M288,522.2666666666667 L329.45454545454544,508.4 L370.9090909090909,515.3333333333334 L412.3636363636364,499.15555555555557 L453.8181818181818,485.2888888888889 L495.27272727272725,494.5333333333333 L536.7272727272727,476.0444444444444 L578.1818181818182,480.6666666666667 L619.6363636363636,469.1111111111111 L661.090909090909,462.1777777777778 L702.5454545454545,452.93333333333334 L744,446 " fill="none" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="288" y1="550" x2="744" y2="550" stroke="#2a2f3d"/>
+  
+  <rect x="780" y="418" width="428" height="160" rx="10" fill="#0f1117" stroke="#2a2f3d"/>
+  <text x="794" y="438" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Последние документы</text>
+  <text x="792" y="454" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Документ</text><text x="926.6666666666666" y="454" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Сумма</text><text x="1061.3333333333333" y="454" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="600">Статус</text>
+  <text x="792" y="466" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">INV-2026-5785</text><text x="926.6666666666666" y="466" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">1 160 ₸</text><text x="1061.3333333333333" y="466" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">проведён</text><line x1="788" y1="476" x2="1200" y2="476" stroke="#2a2f3d" opacity="0.6"/><text x="792" y="494" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">СФ-0042</text><text x="926.6666666666666" y="494" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">486 400 ₸</text><text x="1061.3333333333333" y="494" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">черновик</text><line x1="788" y1="504" x2="1200" y2="504" stroke="#2a2f3d" opacity="0.6"/><text x="792" y="522" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="600">АКТ-118</text><text x="926.6666666666666" y="522" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">2 100 000 ₸</text><text x="1061.3333333333333" y="522" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="400">проведён</text>
+  <circle cx="1232" cy="672" r="26" fill="url(#g)"/><text x="1232" y="678" text-anchor="middle" fill="#fff" font-size="18">✦</text>
+  <text x="48" y="648" fill="#e8eaef" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="600">header</text>
+  
+  <text x="1264" y="710" text-anchor="end" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="10">Демо-данные для обучения</text>
 </svg>
