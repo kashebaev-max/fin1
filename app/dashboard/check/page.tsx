@@ -108,6 +108,12 @@ export default function CheckPage() {
                       стат. реестр ↗
                     </a>{" "}
                     (поиск по БИН {result.bin}) или добавьте контрагента в Finstat — тогда имя подтянется при следующей проверке.
+                    {result.registry_configured === false && (
+                      <div className="text-[11px] mt-2 p-2 rounded-lg" style={{ background: "var(--bg)", color: "var(--t3)" }}>
+                        На сервере не задан ключ реестра: в Netlify → Environment variables добавьте{" "}
+                        <code className="text-[10px]">DATA_EGOV_KZ_API_KEY</code> и сделайте Redeploy.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

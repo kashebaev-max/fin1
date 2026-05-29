@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataEgovApiKey } from "@/lib/data-egov-kz";
 import { analyzeBinLocally, type BinCheckResult, type CheckItem } from "@/lib/kz-bin";
 import { lookupOrganizationByBin } from "@/lib/bin-name-lookup";
 import { createServerSupabase } from "@/lib/supabase-server";
@@ -119,6 +120,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(mergeNameFields(analyzeBinLocally(bin || "000000000000"), nameInfo));
     }
 
+    const localResult = mergeNameFields(analyzeBinLocally(bin), nameInfo);
+
+    // Есть данные из ГБД ЮЛ — отдаём локальную проверку без AI (стабильные поля и наименование)
+    if (nameInfo.organization_name) {
+      return NextResponse.json({
+        ...localResult,
+        registry_configured: true,
+      });
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -142,7 +153,10 @@ export async function POST(req: NextRequest) {
           const text = data.content?.[0]?.text || "";
           const parsed = extractJson(text);
           if (parsed) {
-            return NextResponse.json(normalizeResponse(bin, parsed, nameInfo));
+            return NextResponse.json({
+              ...normalizeResponse(bin, parsed, nameInfo),
+              registry_configured: Boolean(getDataEgovApiKey()),
+            });
           }
         }
       } catch {
@@ -150,7 +164,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(mergeNameFields(analyzeBinLocally(bin), nameInfo));
+    return NextResponse.json({
+      ...localResult,
+      registry_configured: Boolean(getDataEgovApiKey()),
+    });
   } catch (e) {
     console.error("[api/check]", e);
     return NextResponse.json({ error: "Ошибка проверки. Попробуйте позже." }, { status: 500 });

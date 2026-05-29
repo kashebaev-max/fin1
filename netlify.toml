@@ -1,3 +1,6 @@
+# Runtime (Netlify UI → Environment variables):
+# DATA_EGOV_KZ_API_KEY — наименование ЮЛ по БИН (data.egov.kz / gbd_ul)
+
 [build]
   command = "npm run build"
   publish = ".next"
