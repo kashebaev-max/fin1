@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { fmtMoney } from "@/lib/tax2026";
-import { importScannedDocument } from "@/lib/document-import";
+import { importScannedDocument, type ExtractedData } from "@/lib/document-import";
 import {
   callScanDocument,
   fileToBase64,
