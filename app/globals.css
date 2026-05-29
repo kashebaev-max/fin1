@@ -30,6 +30,21 @@
   --hover: #1C2233;
 }
 
+/* Landing preview: variant 2 — Light Trust */
+[data-landing="light-trust"][data-theme="light"] {
+  --bg: #F8FAFC;
+  --card: #FFFFFF;
+  --brd: #E2E8F0;
+  --t1: #0F172A;
+  --t2: #64748B;
+  --t3: #94A3B8;
+  --accent: #0F766E;
+  --accent-dim: #0F766E18;
+  --sidebar: #F1F5F9;
+  --input-bg: #FFFFFF;
+  --hover: #F1F5F9;
+}
+
 body {
   background: var(--bg);
   color: var(--t1);
