@@ -46,6 +46,15 @@ export default function UsersPage() {
       supabase.from("payments").select("*").eq("status", "completed").order("created_at", { ascending: false }),
     ]);
 
+    if (profilesRes.error) {
+      console.error("profiles load error:", profilesRes.error);
+      alert(
+        "Не удалось загрузить пользователей: " +
+          profilesRes.error.message +
+          "\n\nЕсли вы админ — выполните SQL fix в Supabase (файл 20260530_fix_admin_see_users.sql)."
+      );
+    }
+
     const subsMap: Record<string, any> = {};
     (subsRes.data || []).forEach(s => { subsMap[s.user_id] = s; });
 
