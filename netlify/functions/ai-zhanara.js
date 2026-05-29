@@ -227,6 +227,44 @@ function sleep(ms) {
   return new Promise(function(resolve) { setTimeout(resolve, ms); });
 }
 
+var INSIGHTS_SYSTEM =
+  "Ты — Жанара, AI-аналитик Finstat.kz (бухгалтерия и налоги РК, НК 2026).\n" +
+  "На основе данных компании сформируй 3–7 конкретных рекомендаций.\n\n" +
+  "Ответь ТОЛЬКО валидным JSON (без markdown, без пояснений до/после):\n" +
+  '{"insights":[{"category":"cashflow","severity":"warning","title":"...","message":"...","actionLabel":"Открыть","actionUrl":"/dashboard/...","relatedModule":"cash"}]}\n\n' +
+  "category: tax_deadline|cashflow|overdue|low_stock|expiring_batches|unposted_docs|salary_due|recommendation|anomaly|opportunity|compliance|general\n" +
+  "severity: critical|warning|info|success\n" +
+  "actionLabel и actionUrl — только если есть полезная ссылка в кабинет Finstat, иначе null.";
+
+function parseInsightsJson(text) {
+  if (!text) return null;
+  var raw = String(text).trim();
+  var fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) raw = fence[1].trim();
+  var start = raw.indexOf("{");
+  var end = raw.lastIndexOf("}");
+  if (start === -1 || end === -1) return null;
+  try {
+    var parsed = JSON.parse(raw.slice(start, end + 1));
+    if (!parsed || !Array.isArray(parsed.insights)) return null;
+    return parsed.insights
+      .filter(function(i) { return i && i.title && i.message; })
+      .map(function(i) {
+        return {
+          category: i.category || "general",
+          severity: ["critical", "warning", "info", "success"].indexOf(i.severity) >= 0 ? i.severity : "info",
+          title: String(i.title).slice(0, 200),
+          message: String(i.message).slice(0, 2000),
+          actionLabel: i.actionLabel || null,
+          actionUrl: i.actionUrl || null,
+          relatedModule: i.relatedModule || null,
+        };
+      });
+  } catch (e) {
+    return null;
+  }
+}
+
 async function callAnthropic(apiKey, model, requestBody, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
@@ -356,10 +394,66 @@ exports.handler = async function(event) {
     };
   }
 
+  // ─── Режим инсайтов (главная: «Жанара рекомендует») ───
+  if (body.mode === "insights") {
+    const contextText = (body.contextText || "").slice(0, 12000);
+    const insightsSystem = INSIGHTS_SYSTEM + (contextText ? "\n\n📊 ДАННЫЕ КОМПАНИИ:\n" + contextText : "");
+
+    const requestBody = {
+      max_tokens: 2500,
+      system: insightsSystem,
+      messages: [
+        {
+          role: "user",
+          content:
+            "Проанализируй состояние бизнеса по данным выше. Верни JSON с массивом insights (минимум 3 пункта, если есть о чём предупредить).",
+        },
+      ],
+    };
+
+    const result = await callWithRetryAndFallback(apiKey, requestBody);
+
+    if (!result.success) {
+      return {
+        statusCode: result.status || 503,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: result.error || "Не удалось получить анализ",
+          details: result.details,
+        }),
+      };
+    }
+
+    const textBlocks = (result.data.content || [])
+      .filter(function(b) { return b.type === "text"; })
+      .map(function(b) { return b.text; });
+    const insights = parseInsightsJson(textBlocks.join("\n"));
+
+    if (!insights || insights.length === 0) {
+      return {
+        statusCode: 502,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: "AI вернула ответ в неверном формате. Попробуйте ещё раз.",
+        }),
+      };
+    }
+
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ insights: insights, model_used: result.model_used }),
+    };
+  }
+
   // Ограничиваем последние 10 сообщений и контекст
-  const messages = (body.messages || []).slice(-10);
+  let messages = (body.messages || []).slice(-10);
   const contextText = (body.contextText || "").slice(0, 1500);  // было 2000
   const enableTools = body.enableTools !== false;
+
+  if (messages.length === 0) {
+    messages = [{ role: "user", content: "Здравствуйте" }];
+  }
 
   let finalSystem = SYSTEM_PROMPT;
   if (contextText) {

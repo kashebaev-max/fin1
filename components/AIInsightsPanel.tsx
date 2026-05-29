@@ -95,8 +95,16 @@ export default function AIInsightsPanel() {
         }),
       });
 
-      if (!res.ok) throw new Error(`AI error ${res.status}`);
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { insights?: Insight[]; error?: string };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(res.ok ? "Неверный ответ сервера" : `AI error ${res.status}`);
+      }
+      if (!res.ok) {
+        throw new Error(data.error || `AI error ${res.status}`);
+      }
       const newInsights: Insight[] = data.insights || [];
 
       if (newInsights.length === 0) {
