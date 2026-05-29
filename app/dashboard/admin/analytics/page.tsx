@@ -68,10 +68,21 @@ export default function AnalyticsPage() {
       supabase.rpc("get_analytics_summary", { p_start_date: since, p_end_date: new Date().toISOString() }),
     ]);
 
+    if (pvRes.error || sessRes.error || sumRes.error) {
+      console.error("Analytics load:", { pv: pvRes.error, sess: sessRes.error, sum: sumRes.error });
+    }
+
     setPageViews(pvRes.data || []);
     setSessions(sessRes.data || []);
     setSummary(sumRes.data?.[0] || null);
     setLoading(false);
+
+    if (
+      (pvRes.error?.message?.includes("policy") || sessRes.error?.message?.includes("policy")) &&
+      (pvRes.data || []).length === 0
+    ) {
+      console.warn("Выполните SQL: supabase/migrations/20260531_fix_analytics_rls.sql");
+    }
   }
 
   // Графики по дням (для chart)
