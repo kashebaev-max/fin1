@@ -24,9 +24,19 @@ export default function CheckPage() {
         body: JSON.stringify({ bin }),
       });
       const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error || `Ошибка сервера (${res.status})`);
+        setResult(null);
+        return;
+      }
+      if (!data.bin) {
+        setError("Некорректный ответ сервера. Попробуйте ещё раз.");
+        setResult(null);
+        return;
+      }
       setResult(data);
     } catch {
-      setError("Ошибка проверки. Попробуйте позже.");
+      setError("Ошибка проверки. Проверьте интернет и попробуйте позже.");
     } finally {
       setLoading(false);
     }
