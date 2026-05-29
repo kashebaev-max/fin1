@@ -61,28 +61,34 @@ export default function AnalyticsPage() {
   async function loadData() {
     setLoading(true);
     const since = getDateFilter();
+    const until = new Date().toISOString();
 
-    const [pvRes, sessRes, sumRes] = await Promise.all([
-      supabase.from("page_views").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(500),
-      supabase.from("user_sessions").select("*").gte("first_seen", since).order("first_seen", { ascending: false }).limit(200),
-      supabase.rpc("get_analytics_summary", { p_start_date: since, p_end_date: new Date().toISOString() }),
-    ]);
+    try {
+      const [detailRes, sumRes] = await Promise.all([
+        fetch(`/api/admin/analytics?since=${encodeURIComponent(since)}`),
+        supabase.rpc("get_analytics_summary", {
+          p_start_date: since,
+          p_end_date: until,
+        }),
+      ]);
 
-    if (pvRes.error || sessRes.error || sumRes.error) {
-      console.error("Analytics load:", { pv: pvRes.error, sess: sessRes.error, sum: sumRes.error });
+      const detail = await detailRes.json();
+      if (!detailRes.ok) {
+        console.error("Analytics detail:", detail.error);
+      } else {
+        setPageViews(detail.page_views || []);
+        setSessions(detail.sessions || []);
+      }
+
+      if (sumRes.error) {
+        console.error("Analytics summary:", sumRes.error);
+      }
+      setSummary(sumRes.data?.[0] || null);
+    } catch (e) {
+      console.error("Analytics load failed:", e);
     }
 
-    setPageViews(pvRes.data || []);
-    setSessions(sessRes.data || []);
-    setSummary(sumRes.data?.[0] || null);
     setLoading(false);
-
-    if (
-      (pvRes.error?.message?.includes("policy") || sessRes.error?.message?.includes("policy")) &&
-      (pvRes.data || []).length === 0
-    ) {
-      console.warn("Выполните SQL: supabase/migrations/20260531_fix_analytics_rls.sql");
-    }
   }
 
   // Графики по дням (для chart)
