@@ -86,10 +86,30 @@ export default function CheckPage() {
         <>
           {/* Summary card */}
           <div className="rounded-xl p-6" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <div className="text-xs mb-1" style={{ color: "var(--t3)" }}>БИН</div>
-                <div className="text-2xl font-bold font-mono" style={{ letterSpacing: "0.08em" }}>{result.bin}</div>
+            <div className="flex flex-wrap justify-between items-start gap-4 mb-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="text-xs mb-1" style={{ color: "var(--t3)" }}>Наименование организации</div>
+                {result.organization_name ? (
+                  <>
+                    <div className="text-xl font-bold leading-snug">{result.organization_name}</div>
+                    {result.name_source && (
+                      <div className="text-[11px] mt-1" style={{ color: "var(--t3)" }}>{result.name_source}</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm" style={{ color: "var(--t2)" }}>
+                    Не найдено автоматически. Откройте{" "}
+                    <a
+                      href={`https://stat.gov.kz/ru/juridical/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      стат. реестр ↗
+                    </a>{" "}
+                    (поиск по БИН {result.bin}) или добавьте контрагента в Finstat — тогда имя подтянется при следующей проверке.
+                  </div>
+                )}
               </div>
               <div className="text-right">
                 <div className="text-xs mb-1" style={{ color: "var(--t3)" }}>Уровень риска</div>
@@ -99,6 +119,26 @@ export default function CheckPage() {
                 </div>
               </div>
             </div>
+
+            <div className="mb-4 p-3 rounded-lg" style={{ background: "var(--bg)" }}>
+              <div className="text-[10px] font-semibold mb-1" style={{ color: "var(--t3)" }}>БИН</div>
+              <div className="text-lg font-bold font-mono" style={{ letterSpacing: "0.08em" }}>{result.bin}</div>
+            </div>
+
+            {(result.address || result.director) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                {result.address && (
+                  <div className="p-3 rounded-lg text-xs" style={{ background: "var(--bg)", color: "var(--t2)" }}>
+                    <span style={{ color: "var(--t3)" }}>Адрес: </span>{result.address}
+                  </div>
+                )}
+                {result.director && (
+                  <div className="p-3 rounded-lg text-xs" style={{ background: "var(--bg)", color: "var(--t2)" }}>
+                    <span style={{ color: "var(--t3)" }}>Руководитель: </span>{result.director}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-4">
               <div className="p-3 rounded-lg" style={{ background: "var(--bg)" }}>
