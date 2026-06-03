@@ -7,6 +7,7 @@ import type { Profile } from "@/lib/types";
 import { HOME_MODULE, MODULE_GROUPS, ALL_MODULES, isModuleEnabled } from "@/lib/modules-config";
 import NotificationBell from "@/components/NotificationBell";
 import JanaraButton from "@/components/JanaraButton";
+import SupportWidget from "@/components/SupportWidget";
 import SubscriptionBanner from "@/components/SubscriptionBanner";
 import ScannerButton from "@/components/ScannerButton";
 import ReadOnlyFormGuard from "@/components/ReadOnlyFormGuard";
@@ -327,6 +328,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* Глобальная плавающая кнопка Жанары на всех страницах */}
       <JanaraButton />
+      {/* Виджет обращения в поддержку */}
+      <SupportWidget />
     </div>
     </ReadOnlyProvider>
   );

@@ -154,6 +154,13 @@ export default function AdminPage() {
         >
           📊 Аналитика
         </button>
+        <button
+          onClick={() => router.push("/dashboard/admin/support")}
+          className="px-5 py-3 rounded-xl text-sm font-semibold cursor-pointer"
+          style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t2)" }}
+        >
+          🆘 Обращения в поддержку
+        </button>
       </div>
     </div>
   );
