@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Finstat.kz — промо</title>
+<style>
+  :root {
+    --bg: #0C0F15;
+    --bg2: #0A0D12;
+    --card: #131720;
+    --brd: #1C2233;
+    --t1: #E4E9F2;
+    --t2: #9BA4B8;
+    --t3: #5E6A82;
+    --accent: #6366F1;
+    --purple: #A855F7;
+    --green: #10B981;
+    --amber: #F59E0B;
+    --red: #EF4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--t1);
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage {
+    position: relative;
+    width: 100vw; height: 100vh;
+    background:
+      radial-gradient(1200px 700px at 70% -10%, rgba(99,102,241,0.18), transparent 60%),
+      radial-gradient(900px 600px at 10% 110%, rgba(168,85,247,0.14), transparent 60%),
+      var(--bg);
+    overflow: hidden;
+  }
+  .scene {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    will-change: opacity, transform;
+  }
+  .wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+
+  /* ---- generic UI pieces ---- */
+  .badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 18px; border-radius: 999px;
+    background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35);
+    color: var(--accent); font-weight: 700; font-size: 22px;
+  }
+  .logo-badge {
+    width: 96px; height: 96px; border-radius: 24px;
+    background: linear-gradient(135deg, #6366F1, #A855F7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 58px; font-weight: 800; color: #fff;
+    box-shadow: 0 20px 60px rgba(99,102,241,0.45);
+  }
+  .title { font-weight: 800; letter-spacing: -0.02em; line-height: 1.08; }
+  .sub { color: var(--t2); font-weight: 500; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--brd);
+    border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+  }
+
+  /* App shell mock */
+  .shell { display: grid; grid-template-columns: 220px 1fr; gap: 18px; }
+  .sidebar { background: var(--bg2); border: 1px solid var(--brd); border-radius: 16px; padding: 16px; }
+  .side-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .side-logo .m { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg,#6366F1,#A855F7); display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:18px;}
+  .side-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color: var(--t2); font-size:15px; margin-bottom:4px;}
+  .side-item.active { background: rgba(99,102,241,0.15); color: var(--t1); }
+  .kpis { display:grid; grid-template-columns: repeat(3,1fr); gap:14px; }
+  .kpi { padding:18px; }
+  .kpi .lbl { font-size:13px; color: var(--t3); font-weight:700; text-transform:uppercase; letter-spacing:.04em;}
+  .kpi .val { font-size:30px; font-weight:800; margin-top:8px; }
+  .chart { display:flex; align-items:flex-end; gap:12px; height:160px; padding:18px; }
+  .bar { flex:1; border-radius:8px 8px 0 0; background: linear-gradient(180deg,#6366F1,#A855F7); transform-origin:bottom; }
+
+  /* scan scene */
+  .doc { width: 320px; height: 420px; border-radius:14px; background:#fff; color:#10131a; padding:22px; position:relative; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.5);}
+  .doc h4{ font-size:16px; margin-bottom:10px; color:#10131a;}
+  .doc .line{ height:9px; border-radius:5px; background:#e4e6ee; margin:9px 0;}
+  .scanline{ position:absolute; left:0; right:0; height:48px; background:linear-gradient(180deg,rgba(99,102,241,0),rgba(99,102,241,.45)); border-bottom:2px solid var(--accent);}
+  .fields{ display:flex; flex-direction:column; gap:12px; }
+  .field{ display:flex; justify-content:space-between; align-items:center; padding:14px 16px; min-width:330px;}
+  .field .k{ color:var(--t3); font-size:14px;}
+  .field .v{ font-weight:700; font-size:16px;}
+
+  /* chat scene */
+  .chat{ display:flex; flex-direction:column; gap:14px; width:560px; }
+  .bubble{ padding:16px 18px; border-radius:16px; font-size:18px; line-height:1.5; max-width:80%; }
+  .bubble.q{ align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px;}
+  .bubble.a{ align-self:flex-start; background:var(--card); border:1px solid var(--brd); color:var(--t1); border-bottom-left-radius:4px;}
+  .zh{ display:flex; align-items:center; gap:10px; color:var(--purple); font-weight:700; font-size:15px;}
+  .dot{ width:8px;height:8px;border-radius:50%;background:var(--t3);display:inline-block;margin:0 2px;}
+
+  /* bin scene */
+  .bin-input{ display:flex; align-items:center; gap:12px; padding:16px 18px; min-width:420px; font-size:26px; font-weight:800; letter-spacing:.12em; font-family:monospace;}
+  .risk{ padding:8px 16px; border-radius:10px; background:rgba(16,185,129,.16); color:var(--green); font-weight:800; font-size:18px;}
+
+  /* modules grid */
+  .mods{ display:grid; grid-template-columns: repeat(4,1fr); gap:16px; max-width:760px;}
+  .mod{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:22px 14px;}
+  .mod .ic{ font-size:34px;}
+  .mod .nm{ font-size:14px; color:var(--t2); font-weight:600; text-align:center;}
+
+  /* CTA */
+  .cta-btn{ padding:18px 34px; border-radius:14px; background:#fff; color:#6366F1; font-weight:800; font-size:24px; box-shadow:0 16px 40px rgba(255,255,255,.18);}
+  .url{ font-size:30px; font-weight:800; color:var(--t1); letter-spacing:.01em;}
+
+  /* sizing: horizontal (default) */
+  body[data-format="horizontal"] .title.big { font-size: 64px; }
+  body[data-format="horizontal"] .shell { width: 1280px; }
+  body[data-format="horizontal"] .scene .wrap { padding: 0 80px; }
+
+  /* sizing: vertical */
+  body[data-format="vertical"] .title.big { font-size: 72px; text-align:center; }
+  body[data-format="vertical"] .shell { grid-template-columns: 1fr; width: 760px; }
+  body[data-format="vertical"] .sidebar { display:none; }
+  body[data-format="vertical"] .kpis { grid-template-columns: 1fr 1fr; }
+  body[data-format="vertical"] .mods { grid-template-columns: repeat(2,1fr); max-width:620px;}
+  body[data-format="vertical"] .scene .wrap { padding: 0 50px; flex-direction:column; }
+</style>
+</head>
+<body data-format="horizontal">
+  <div id="stage">
+    <!-- 1. INTRO -->
+    <section class="scene" data-scene="0">
+      <div class="wrap" style="flex-direction:column; gap:30px;">
+        <div class="logo-badge" data-el="logo">₸</div>
+        <div style="text-align:center;">
+          <div class="title big" data-el="t-title">Finstat<span style="color:var(--accent)">.kz</span></div>
+          <div class="sub" data-el="t-sub" style="font-size:26px; margin-top:16px;">Бухгалтерия, которой не нужен бухгалтер</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. DASHBOARD -->
+    <section class="scene" data-scene="1">
+      <div class="wrap">
+        <div class="shell">
+          <div class="sidebar" data-el="d-side">
+            <div class="side-logo"><span class="m">₸</span><b>Finstat.kz</b></div>
+            <div class="side-item active">📊 Главная</div>
+            <div class="side-item">🧾 Документы</div>
+            <div class="side-item">📦 Склад</div>
+            <div class="side-item">👥 Кадры</div>
+            <div class="side-item">📑 Налоги и ФНО</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div class="kpis">
+              <div class="card kpi" data-el="kpi-0"><div class="lbl">Выручка</div><div class="val" style="color:var(--green)" data-count="14200000" data-suffix=" ₸">0 ₸</div></div>
+              <div class="card kpi" data-el="kpi-1"><div class="lbl">Прибыль</div><div class="val" data-count="3850000" data-suffix=" ₸">0 ₸</div></div>
+              <div class="card kpi" data-el="kpi-2"><div class="lbl">Налоги</div><div class="val" style="color:var(--amber)" data-count="1120000" data-suffix=" ₸">0 ₸</div></div>
+            </div>
+            <div class="card chart">
+              <div class="bar" data-bar="0"></div><div class="bar" data-bar="1"></div>
+              <div class="bar" data-bar="2"></div><div class="bar" data-bar="3"></div>
+              <div class="bar" data-bar="4"></div><div class="bar" data-bar="5"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. OCR -->
+    <section class="scene" data-scene="2">
+      <div class="wrap" style="gap:60px;">
+        <div class="doc" data-el="doc">
+          <h4>СЧЁТ-ФАКТУРА №2026-0418</h4>
+          <div class="line" style="width:80%"></div>
+          <div class="line" style="width:60%"></div>
+          <div class="line" style="width:90%"></div>
+          <div class="line" style="width:50%"></div>
+          <div class="line" style="width:75%"></div>
+          <div class="scanline" data-el="scan"></div>
+        </div>
+        <div class="fields">
+          <div class="card field" data-field="0"><span class="k">Поставщик</span><span class="v">ТОО «Фарма-Life»</span></div>
+          <div class="card field" data-field="1"><span class="k">БИН</span><span class="v">110640020454</span></div>
+          <div class="card field" data-field="2"><span class="k">Сумма</span><span class="v">1 240 000 ₸</span></div>
+          <div class="card field" data-field="3"><span class="k">НДС 16%</span><span class="v" style="color:var(--green)">198 400 ₸</span></div>
+          <div class="zh" data-field="4" style="color:var(--green); font-size:18px;">✓ Проводки сформированы автоматически</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. ЖАНАРА -->
+    <section class="scene" data-scene="3">
+      <div class="wrap" style="flex-direction:column; gap:24px;">
+        <div class="zh" data-el="zh-h"><span style="font-size:22px">✦</span> AI-помощник Жанара</div>
+        <div class="chat">
+          <div class="bubble q" data-el="q">Сколько я должен заплатить налогов в этом квартале?</div>
+          <div class="bubble a" data-el="a">
+            <span data-el="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+            <span data-el="answer" style="display:none">По ФНО 300 за квартал: НДС к уплате <b style="color:var(--green)">1 120 000 ₸</b>. Срок — до 25 числа. Напомню за 3 дня.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. BIN -->
+    <section class="scene" data-scene="4">
+      <div class="wrap" style="flex-direction:column; gap:22px;">
+        <div class="sub" style="font-size:20px;">Проверка контрагента по БИН</div>
+        <div class="card bin-input" data-el="bin"><span data-el="bin-num">—</span></div>
+        <div class="card" data-el="bin-res" style="padding:22px 26px; min-width:420px; display:flex; justify-content:space-between; align-items:center; gap:30px;">
+          <div>
+            <div style="font-size:13px; color:var(--t3); font-weight:700;">НАИМЕНОВАНИЕ</div>
+            <div style="font-size:22px; font-weight:800; margin-top:6px;">ТОО «Фарма-Life»</div>
+          </div>
+          <div class="risk">Низкий риск</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. MODULES -->
+    <section class="scene" data-scene="5">
+      <div class="wrap" style="flex-direction:column; gap:28px;">
+        <div class="title" data-el="m-title" style="font-size:40px;">Всё в одной системе</div>
+        <div class="mods">
+          <div class="card mod" data-mod="0"><div class="ic">🧾</div><div class="nm">Документы</div></div>
+          <div class="card mod" data-mod="1"><div class="ic">📦</div><div class="nm">Склад</div></div>
+          <div class="card mod" data-mod="2"><div class="ic">💸</div><div class="nm">Зарплата</div></div>
+          <div class="card mod" data-mod="3"><div class="ic">📑</div><div class="nm">ФНО 910/200/300</div></div>
+          <div class="card mod" data-mod="4"><div class="ic">🏦</div><div class="nm">Касса и банк</div></div>
+          <div class="card mod" data-mod="5"><div class="ic">📊</div><div class="nm">Аналитика</div></div>
+          <div class="card mod" data-mod="6"><div class="ic">🔍</div><div class="nm">Проверка БИН</div></div>
+          <div class="card mod" data-mod="7"><div class="ic">✦</div><div class="nm">AI Жанара</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. CTA -->
+    <section class="scene" data-scene="6">
+      <div class="wrap" style="flex-direction:column; gap:26px;">
+        <div class="logo-badge" data-el="cta-logo" style="width:72px;height:72px;font-size:42px;border-radius:18px;">₸</div>
+        <div class="title big" data-el="cta-title" style="font-size:54px; text-align:center;">30 дней бесплатно</div>
+        <div class="sub" data-el="cta-sub" style="font-size:22px;">Без установки. Прямо в браузере.</div>
+        <div class="cta-btn" data-el="cta-btn">Начать сейчас →</div>
+        <div class="url" data-el="cta-url">finstat.kz</div>
+      </div>
+    </section>
+  </div>
+
+<script>
+(function () {
+  // ───────── Timeline (ms) ─────────
+  var SCENES = [
+    { t0: 0,     t1: 3000  }, // intro
+    { t0: 3000,  t1: 7200  }, // dashboard
+    { t0: 7200,  t1: 11600 }, // ocr
+    { t0: 11600, t1: 15800 }, // zhanara
+    { t0: 15800, t1: 19200 }, // bin
+    { t0: 19200, t1: 22200 }, // modules
+    { t0: 22200, t1: 25500 }  // cta
+  ];
+  var DURATION = SCENES[SCENES.length - 1].t1;
+  var FADE = 450; // ms cross-fade
+
+  window.PROMO = { duration: DURATION, fps: 30 };
+
+  // ───────── helpers ─────────
+  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+  function easeOut(p) { return 1 - Math.pow(1 - p, 3); }
+  function easeInOut(p) { return p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2,3)/2; }
+  function lerp(a, b, p) { return a + (b - a) * p; }
+  function fmt(n) { return Math.round(n).toLocaleString("ru-RU"); }
+  function q(sel, root) { return (root||document).querySelector(sel); }
+  function qa(sel, root) { return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+
+  var scenes = qa(".scene");
+
+  // reveal helper: translateY + opacity by local progress with delay
+  function reveal(el, p, opts) {
+    opts = opts || {};
+    var delay = opts.delay || 0;       // 0..1 of scene
+    var span = opts.span || 0.35;
+    var dy = opts.dy != null ? opts.dy : 26;
+    var local = clamp((p - delay) / span, 0, 1);
+    var e = easeOut(local);
+    el.style.opacity = e;
+    el.style.transform = "translateY(" + lerp(dy, 0, e) + "px)";
+  }
+
+  function sceneProgress(i, t) {
+    var s = SCENES[i];
+    return clamp((t - s.t0) / (s.t1 - s.t0), 0, 1);
+  }
+
+  function renderScene(i, p) {
+    if (i === 0) {
+      reveal(q('[data-el="logo"]'), p, { delay: 0.05, span: 0.4, dy: 30 });
+      reveal(q('[data-el="t-title"]'), p, { delay: 0.25, span: 0.4, dy: 24 });
+      reveal(q('[data-el="t-sub"]'), p, { delay: 0.45, span: 0.4, dy: 20 });
+      var lb = q('[data-el="logo"]');
+      lb.style.transform += " scale(" + lerp(0.85, 1, easeOut(clamp(p/0.5,0,1))) + ")";
+    } else if (i === 1) {
+      reveal(q('[data-el="d-side"]'), p, { delay: 0.0, span: 0.3, dy: 0 });
+      qa('[data-el^="kpi-"]').forEach(function (el, k) {
+        reveal(el, p, { delay: 0.12 + k * 0.1, span: 0.35, dy: 24 });
+      });
+      // count-up numbers
+      var cnt = clamp((p - 0.2) / 0.5, 0, 1);
+      qa("[data-count]").forEach(function (el) {
+        var target = +el.getAttribute("data-count");
+        var suffix = el.getAttribute("data-suffix") || "";
+        el.textContent = fmt(target * easeOut(cnt)) + suffix;
+      });
+      // bars grow
+      qa("[data-bar]").forEach(function (el, k) {
+        var heights = [0.45, 0.62, 0.5, 0.78, 0.66, 0.92];
+        var bp = clamp((p - 0.25 - k * 0.05) / 0.4, 0, 1);
+        el.style.height = (easeOut(bp) * heights[k] * 100) + "%";
+      });
+    } else if (i === 2) {
+      reveal(q('[data-el="doc"]'), p, { delay: 0.0, span: 0.25, dy: 30 });
+      // scan line sweeps top→bottom between p .2–.55
+      var sp = clamp((p - 0.18) / 0.4, 0, 1);
+      var scan = q('[data-el="scan"]');
+      scan.style.opacity = (sp > 0 && sp < 1) ? 1 : 0;
+      scan.style.top = lerp(0, 372, sp) + "px";
+      // fields appear after scan
+      qa("[data-field]").forEach(function (el, k) {
+        reveal(el, p, { delay: 0.5 + k * 0.08, span: 0.3, dy: 18 });
+      });
+    } else if (i === 3) {
+      reveal(q('[data-el="zh-h"]'), p, { delay: 0.0, span: 0.25, dy: 16 });
+      reveal(q('[data-el="q"]'), p, { delay: 0.12, span: 0.25, dy: 18 });
+      reveal(q('[data-el="a"]'), p, { delay: 0.32, span: 0.25, dy: 18 });
+      // typing → answer swap at p=0.62
+      var typing = q('[data-el="typing"]');
+      var answer = q('[data-el="answer"]');
+      var showAns = p > 0.62;
+      typing.style.display = showAns ? "none" : "inline";
+      answer.style.display = showAns ? "inline" : "none";
+      // animate typing dots
+      if (!showAns) {
+        var dots = qa(".dot", typing);
+        dots.forEach(function (d, k) {
+          var ph = (p * 8 + k * 0.33) % 1;
+          d.style.opacity = 0.3 + 0.7 * Math.abs(Math.sin(ph * Math.PI));
+        });
+      }
+    } else if (i === 4) {
+      reveal(q('[data-el="bin"]'), p, { delay: 0.05, span: 0.25, dy: 18 });
+      // type digits 0..12 by p .1–.5
+      var full = "110640020454";
+      var n = Math.floor(clamp((p - 0.1) / 0.4, 0, 1) * full.length);
+      q('[data-el="bin-num"]').textContent = full.slice(0, n) || "—";
+      // result reveal after typed
+      reveal(q('[data-el="bin-res"]'), p, { delay: 0.55, span: 0.3, dy: 22 });
+    } else if (i === 5) {
+      reveal(q('[data-el="m-title"]'), p, { delay: 0.0, span: 0.25, dy: 18 });
+      qa("[data-mod]").forEach(function (el, k) {
+        var bp = clamp((p - 0.12 - k * 0.05) / 0.35, 0, 1);
+        var e = easeOut(bp);
+        el.style.opacity = e;
+        el.style.transform = "translateY(" + lerp(22, 0, e) + "px) scale(" + lerp(0.9, 1, e) + ")";
+      });
+    } else if (i === 6) {
+      reveal(q('[data-el="cta-logo"]'), p, { delay: 0.0, span: 0.3, dy: 20 });
+      reveal(q('[data-el="cta-title"]'), p, { delay: 0.18, span: 0.3, dy: 22 });
+      reveal(q('[data-el="cta-sub"]'), p, { delay: 0.34, span: 0.3, dy: 18 });
+      reveal(q('[data-el="cta-btn"]'), p, { delay: 0.5, span: 0.3, dy: 18 });
+      reveal(q('[data-el="cta-url"]'), p, { delay: 0.66, span: 0.3, dy: 14 });
+      var btn = q('[data-el="cta-btn"]');
+      var pulse = 1 + 0.03 * Math.sin(p * Math.PI * 6);
+      if (p > 0.6) btn.style.transform += " scale(" + pulse + ")";
+    }
+  }
+
+  window.seek = function (t) {
+    t = clamp(t, 0, DURATION);
+    for (var i = 0; i < SCENES.length; i++) {
+      var s = SCENES[i];
+      var el = scenes[i];
+      var op = 0;
+      if (t >= s.t0 - FADE && t <= s.t1 + FADE) {
+        var inA = clamp((t - s.t0 + FADE) / FADE, 0, 1);
+        var outA = clamp((s.t1 + FADE - t) / FADE, 0, 1);
+        op = Math.min(inA, outA);
+      }
+      el.style.opacity = op;
+      el.style.visibility = op > 0.001 ? "visible" : "hidden";
+      if (op > 0.001) renderScene(i, sceneProgress(i, t));
+    }
+  };
+
+  // ───────── autoplay when opened directly (no ?capture) ─────────
+  var params = new URLSearchParams(location.search);
+  var fmtParam = params.get("format");
+  if (fmtParam === "vertical" || fmtParam === "horizontal") {
+    document.body.setAttribute("data-format", fmtParam);
+  }
+  window.__promoReady = true;
+
+  if (!params.has("capture")) {
+    var start = null;
+    function loop(ts) {
+      if (start === null) start = ts;
+      var t = (ts - start) % (DURATION + 800);
+      window.seek(t);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  } else {
+    window.seek(0);
+  }
+})();
+</script>
+</body>
+</html>

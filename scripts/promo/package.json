@@ -1,0 +1,18 @@
+{
+  "name": "finstat-promo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Промо-ролик Finstat.kz: анимация интерфейса → кадры (Playwright) → MP4 (ffmpeg)",
+  "scripts": {
+    "promo": "node make-promo.mjs",
+    "promo:horizontal": "node make-promo.mjs --format=horizontal",
+    "promo:vertical": "node make-promo.mjs --format=vertical",
+    "promo:rebuild": "node make-promo.mjs --skip-render",
+    "frames:horizontal": "node render.mjs --format=horizontal",
+    "frames:vertical": "node render.mjs --format=vertical"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
