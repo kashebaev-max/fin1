@@ -6,8 +6,9 @@
  * Использование:
  *   node render.mjs --format=horizontal
  *   node render.mjs --format=vertical --fps=30
+ *   node render.mjs --html=promo-full-vertical.html --out=full-vertical --format=vertical
  *
- * Результат: frames/<format>/frame_00001.png ...
+ * Результат: frames/<out>/frame_00001.png ...
  */
 
 import { chromium } from "playwright";
@@ -28,20 +29,31 @@ function arg(name, def) {
 }
 
 const format = arg("format", "horizontal");
+const htmlFile = arg("html", "promo.html");
+const outName = arg("out", format);
 const fps = parseInt(arg("fps", "30"), 10);
-const scale = parseFloat(arg("scale", "1")); // deviceScaleFactor для чёткости (1 достаточно при нативном разрешении)
+const scale = parseFloat(arg("scale", "1"));
 
 if (!FORMATS[format]) {
   console.error(`Неизвестный формат: ${format}. Доступно: ${Object.keys(FORMATS).join(", ")}`);
   process.exit(1);
 }
 
+const htmlPath = path.join(__dirname, htmlFile);
+if (!fs.existsSync(htmlPath)) {
+  console.error(`HTML не найден: ${htmlPath}`);
+  process.exit(1);
+}
+
 const { width, height } = FORMATS[format];
-const framesDir = path.join(__dirname, "frames", format);
+const framesDir = path.join(__dirname, "frames", outName);
 fs.rmSync(framesDir, { recursive: true, force: true });
 fs.mkdirSync(framesDir, { recursive: true });
 
-const htmlUrl = pathToFileURL(path.join(__dirname, "promo.html")).href + `?capture=1&format=${format}`;
+const htmlUrl =
+  pathToFileURL(htmlPath).href +
+  `?capture=1&format=${format}` +
+  (htmlFile.includes("full-vertical") ? "" : "");
 
 const browser = await chromium.launch();
 const page = await browser.newPage({
@@ -55,7 +67,10 @@ await page.waitForFunction("window.__promoReady === true && typeof window.seek =
 const duration = await page.evaluate(() => window.PROMO.duration);
 const totalFrames = Math.ceil((duration / 1000) * fps);
 
-console.log(`Формат ${format} ${width}x${height} · ${fps} fps · ${(duration / 1000).toFixed(1)} c · ${totalFrames} кадров`);
+const min = (duration / 60000).toFixed(1);
+console.log(
+  `${htmlFile} → ${outName} · ${width}x${height} · ${fps} fps · ${(duration / 1000).toFixed(0)} c (${min} мин) · ${totalFrames} кадров`
+);
 
 for (let i = 0; i < totalFrames; i++) {
   const t = (i / fps) * 1000;

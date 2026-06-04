@@ -50,10 +50,34 @@ npm run promo:vertical
 
 Готовые файлы — в `scripts/promo/out/`.
 
+---
+
+## Полный обзор (все модули, только вертикаль)
+
+Ролик **~4 минуты**, 1080×1920 — каждый модуль системы (60+ экранов):
+разделы из меню → заголовок группы → каждый модуль с мок-интерфейсом → общая сетка → CTA.
+
+**Просмотр в браузере (без установки):** откройте `promo-full-vertical.html` — анимация
+идёт в цикле (~4 мин).
+
+**Сборка MP4:**
+
+```bash
+cd scripts/promo
+npm install
+npx playwright install chromium
+npm run promo:full-vertical
+```
+
+Результат: `out/finstat-promo-full-vertical.mp4`
+
+Ускорить рендер (меньше fps): `node make-promo-full-vertical.mjs --fps=24`
+
 Пересобрать MP4 из уже отрендеренных кадров (например, после добавления музыки):
 
 ```bash
 npm run promo:rebuild
+npm run promo:full-vertical:rebuild   # полный вертикальный ролик
 ```
 
 ---

@@ -8,9 +8,12 @@
     "promo": "node make-promo.mjs",
     "promo:horizontal": "node make-promo.mjs --format=horizontal",
     "promo:vertical": "node make-promo.mjs --format=vertical",
+    "promo:full-vertical": "node make-promo-full-vertical.mjs",
+    "promo:full-vertical:rebuild": "node make-promo-full-vertical.mjs --skip-render",
     "promo:rebuild": "node make-promo.mjs --skip-render",
     "frames:horizontal": "node render.mjs --format=horizontal",
-    "frames:vertical": "node render.mjs --format=vertical"
+    "frames:vertical": "node render.mjs --format=vertical",
+    "frames:full-vertical": "node render.mjs --html=promo-full-vertical.html --out=full-vertical --format=vertical"
   },
   "devDependencies": {
     "playwright": "^1.49.0"
