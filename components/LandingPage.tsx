@@ -4,7 +4,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getLandingTheme, type LandingVariant } from "@/lib/landing-theme";
 import { getLandingImages } from "@/lib/landing-images";
+import {
+  getPublicModuleGroups,
+  LANDING_AREAS,
+  LANDING_CROSS_FEATURES,
+  LANDING_FAQ_EXTRA,
+  LANDING_PRESETS,
+  LANDING_STATS,
+} from "@/lib/landing-content";
 import LandingVisual from "@/components/LandingVisual";
+
+const MODULE_GROUPS_LANDING = getPublicModuleGroups();
 
 type Props = {
   variant?: LandingVariant;
@@ -58,10 +68,11 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
             <div className="flex items-center justify-center font-extrabold text-white" style={{ width: 36, height: 36, borderRadius: 10, background: landing.gradient, fontSize: 16 }}>F</div>
             <div>
               <div className="text-lg font-extrabold">Finstat.kz</div>
-              <div className="text-[9px] tracking-widest" style={{ color: "var(--t3)" }}>НК РК 2026</div>
+              <div className="text-[9px] tracking-widest" style={{ color: "var(--t3)" }}>ЕДИНАЯ СИСТЕМА ДЛЯ БИЗНЕСА</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <a href="#modules" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Модули</a>
             <a href="#features" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Возможности</a>
             <a href="#ocr" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>OCR</a>
             <a href="#ai" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>AI Жанара</a>
@@ -94,13 +105,24 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         <h1 className="text-5xl font-extrabold mb-6" style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}>
           Умный помощник<br />
           <span style={{ background: landing.gradientText, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            для вашего бухгалтера
+            для вашего бизнеса
           </span>
         </h1>
-        <p className="text-lg mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
-          Современная ERP-система для бизнеса Казахстана. Всё по НК РК 2026.<br />
-          Автоматизирует рутину, контролирует сроки, помогает не упустить важное.
+        <p className="text-lg mb-6 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
+          CRM, торговля, склад, деньги, кадры, налоги и аналитика — в одном окне.<br />
+          Для предпринимателей, менеджеров и бухгалтерии в Казахстане. НК РК 2026.
         </p>
+        <div className="flex flex-wrap gap-2 justify-center mb-8 max-w-3xl mx-auto">
+          {LANDING_AREAS.map((area) => (
+            <span
+              key={area}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t2)" }}
+            >
+              {area}
+            </span>
+          ))}
+        </div>
         <div className="flex gap-3 justify-center mb-6">
           <Link href="/auth" className="no-underline">
             <button className="px-8 py-4 rounded-xl text-white font-semibold border-none cursor-pointer" style={{ background: landing.gradient, fontSize: 15 }}>
@@ -114,7 +136,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           </a>
         </div>
         <div className="text-xs mb-10" style={{ color: "var(--t3)" }}>
-          ✓ Без установки &nbsp;&nbsp; ✓ Работает в браузере &nbsp;&nbsp; ✓ Данные под защитой &nbsp;&nbsp; ✓ Поддержка на русском и казахском
+          ✓ Без установки &nbsp;&nbsp; ✓ Замена 1С и Excel &nbsp;&nbsp; ✓ Kaspi-оплата &nbsp;&nbsp; ✓ Поддержка 💬 на сайте
         </div>
         <div className="max-w-4xl mx-auto">
           <LandingVisual src={images.hero} alt="Главная панель Finstat — KPI, графики и рекомендации Жанары" priority />
@@ -123,17 +145,60 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
 
       {/* Stats */}
       <section className="max-w-6xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-4 gap-4">
-          {[
-            { value: "13", label: "модулей", sub: "Всё необходимое" },
-            { value: "12", label: "типов документов", sub: "Счета, акты, накладные" },
-            { value: "100%", label: "по НК РК 2026", sub: "НДС 16%, новые ставки" },
-            { value: "24/7", label: "AI-помощник", sub: "Жанара всегда на связи" },
-          ].map((s, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {LANDING_STATS.map((s, i) => (
             <div key={i} className="rounded-xl p-5 text-center" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
               <div className="text-3xl font-extrabold mb-1" style={{ background: landing.gradientText, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.value}</div>
               <div className="text-sm font-bold">{s.label}</div>
               <div className="text-[11px] mt-1" style={{ color: "var(--t3)" }}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Modules map */}
+      <section id="modules" className="max-w-6xl mx-auto px-6 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>
+            Все процессы бизнеса — в одной системе
+          </h2>
+          <p className="text-sm max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
+            {MODULE_GROUPS_LANDING.length} разделов и {LANDING_STATS[0].value} модулей: от первого лида до сдачи ФНО
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {MODULE_GROUPS_LANDING.map((g) => (
+            <div
+              key={g.key}
+              className="rounded-xl p-5"
+              style={{ background: "var(--card)", border: "1px solid var(--brd)", borderTop: `3px solid ${g.color}` }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">{g.icon}</span>
+                <span className="text-sm font-bold">{g.name}</span>
+                <span className="text-[10px] font-bold ml-auto px-2 py-0.5 rounded-full" style={{ background: `${g.color}22`, color: g.color }}>
+                  {g.items.length}
+                </span>
+              </div>
+              <p className="text-xs mb-3" style={{ color: "var(--t3)", lineHeight: 1.55 }}>
+                {g.description}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {g.items.slice(0, 5).map((it) => (
+                  <span
+                    key={it.key}
+                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
+                    style={{ background: "var(--bg)", color: "var(--t2)", border: "1px solid var(--brd)" }}
+                  >
+                    {it.name}
+                  </span>
+                ))}
+                {g.items.length > 5 && (
+                  <span className="text-[9px] px-1.5 py-0.5" style={{ color: "var(--t3)" }}>
+                    +{g.items.length - 5}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -160,7 +225,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           </h2>
           <p className="text-base max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
             AI Жанара читает любой документ. Распознаёт суммы, БИН, даты, позиции — <br />
-            и сама создаёт записи в бухгалтерии. Никакого ручного ввода.
+            и сама создаёт записи в системе. Никакого ручного ввода.
           </p>
         </div>
 
@@ -189,7 +254,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
               step: "3", 
               icon: "✓", 
               title: "Записи готовы", 
-              desc: "Один клик — и в бухгалтерии появляются: контрагент, товары, проводки. Дт 1330 Кт 3310 + НДС автоматом.",
+              desc: "Один клик — в системе готовы контрагент, товары и проводки. Склад, финансы и отчётность обновляются автоматически.",
               color: landing.stepColors[2]
             },
           ].map((s, i) => (
@@ -264,7 +329,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
       <section id="ai" className="max-w-6xl mx-auto px-6 py-16">
         <div className="rounded-2xl p-12 text-center" style={{ background: landing.aiBlock.bg, border: `1px solid ${landing.aiBlock.border}` }}>
           <div className="text-xs font-bold tracking-widest mb-3" style={{ color: landing.aiBlock.label }}>✦ AI ЖАНАРА</div>
-          <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>Умный AI-ассистент для бухгалтера</h2>
+          <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>AI-ассистент для вашего бизнеса</h2>
           <p className="text-base mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
             Жанара не просто отвечает на вопросы — она <b>видит все процессы</b> в вашей системе,<br />
             анализирует данные и <b>подсказывает, что важно не упустить</b>.
@@ -294,9 +359,9 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
 
           <div className="grid grid-cols-3 gap-3 max-w-3xl mx-auto mb-6">
             {[
-              "«Что у меня по дебиторке?»",
-              "«Когда сдавать ФНО 300?»",
-              "«Какой оборот за март?»",
+              "«Какой оборот и маржа за квартал?»",
+              "«Сколько осталось на складе?»",
+              "«Когда платить НДС и зарплату?»",
             ].map((q, i) => (
               <div key={i} className="p-3 rounded-lg text-xs italic" style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t2)" }}>{q}</div>
             ))}
@@ -386,7 +451,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
               <div className="text-xs font-bold tracking-widest mb-2" style={{ color: "#10B981" }}>✦ ВСЁ СВЯЗАНО</div>
               <div className="text-lg font-bold mb-2">От табеля до проводок —<br/>одним движением</div>
               <div className="text-xs" style={{ color: "var(--t3)", lineHeight: 1.6 }}>
-                Заполнил табель → начислил ЗП → провёл в бухгалтерии. Никаких Excel-таблиц и сверок.
+                Заполнил табель → начислил ЗП → провёл в системе. Никаких Excel-таблиц и сверок.
               </div>
             </div>
             <div className="col-span-2">
@@ -418,21 +483,13 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
       {/* Features */}
       <section id="features" className="max-w-6xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Всё в одной системе</h2>
-          <p className="text-sm" style={{ color: "var(--t2)" }}>13 модулей связаны между собой — один документ обновляет всю систему</p>
+          <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Почему одной системы достаточно</h2>
+          <p className="text-sm" style={{ color: "var(--t2)" }}>
+            Не набор разрозненных сервисов — единая база данных для всего бизнеса
+          </p>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { icon: "◈", title: "12 типов документов", desc: "Счета, счёт-фактуры (ст.412 НК), накладные, акты, договоры, ПКО/РКО, платёжные поручения, ТТН" },
-            { icon: "▦", title: "Полная бухгалтерия", desc: "Журнал проводок, ОСВ, анализ счёта, акт сверки, баланс — всё автоматически из документов" },
-            { icon: "▣", title: "Склад с контролем", desc: "Остатки, поступление, возвраты, инвентаризация. Документы автоматически обновляют склад" },
-            { icon: "💳", title: "Зарплата по НК 2026", desc: "ИПН 10%/15%, ОПВ 10%, ВОСМС 2%, вычет 30 МРП. Приказы, табель, отпуска, больничные" },
-            { icon: "🏗", title: "Основные средства", desc: "Приём к учёту, автоматическая амортизация прямолинейным методом, остаточная стоимость" },
-            { icon: "📅", title: "Календарь бухгалтера", desc: "Все сроки сдачи ФНО 910, 200, 300, 100 на 2026 год с напоминаниями" },
-            { icon: "⚖", title: "Справочник НК РК 2026", desc: "Все ставки (НДС 16%, ИПН, КПН, ОПВР 3.5%, СН 6%), режимы СНР, МРП 4325 ₸" },
-            { icon: "📋", title: "Автозаполнение ФНО", desc: "ФНО 910 (упрощёнка 4%), ФНО 200 (ИПН/СН), ФНО 300 (НДС 16%), ФНО 100 (КПН 20%)" },
-            { icon: "🔍", title: "Проверка контрагентов", desc: "Анализ БИН, определение типа и даты регистрации, прямые ссылки на реестры КГД МФ РК" },
-          ].map((f, i) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {LANDING_CROSS_FEATURES.map((f, i) => {
             const color = landing.featureColors[i] ?? landing.accent;
             return (
               <div key={i} className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)", borderTop: `3px solid ${color}` }}>
@@ -447,19 +504,40 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         </div>
       </section>
 
+      {/* Business presets */}
+      <section id="business" className="max-w-5xl mx-auto px-6 py-16">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Подходит разному бизнесу</h2>
+          <p className="text-sm" style={{ color: "var(--t2)" }}>
+            Включайте только нужные модули — торговля, производство, услуги или малый бизнес
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {LANDING_PRESETS.map((p) => (
+            <div key={p.key} className="rounded-xl p-5 flex gap-4" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+              <div className="text-3xl flex-shrink-0">{p.icon}</div>
+              <div>
+                <div className="text-sm font-bold mb-1">{p.name}</div>
+                <div className="text-xs" style={{ color: "var(--t3)", lineHeight: 1.6 }}>{p.description}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Benefits */}
       <section className="max-w-5xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-extrabold mb-3" style={{ letterSpacing: "-0.02em" }}>Почему Finstat.kz?</h2>
-          <p className="text-sm" style={{ color: "var(--t2)" }}>Современный инструмент для казахстанского бухгалтера и предпринимателя</p>
+          <p className="text-sm" style={{ color: "var(--t2)" }}>Современная платформа для ведения бизнеса в Казахстане</p>
         </div>
         <div className="grid grid-cols-2 gap-4">
           {[
             { icon: "🌐", title: "Работает в браузере", desc: "Ничего не нужно устанавливать. Открыли finstat.kz — и работаете. Хоть с ноутбука, хоть с телефона." },
             { icon: "⚡", title: "Всегда актуальные обновления", desc: "НК РК меняется — система обновляется автоматически. Никаких принудительных перезагрузок и пауз в работе." },
-            { icon: "🧠", title: "AI-помощник Жанара", desc: "Отвечает на вопросы, анализирует процессы, напоминает о сроках — помогает бухгалтеру работать быстрее." },
+            { icon: "🧠", title: "AI-помощник Жанара", desc: "Отвечает на вопросы, анализирует процессы, напоминает о сроках — помогает бизнесу работать быстрее." },
             { icon: "🇰🇿", title: "Казахстанский продукт", desc: "Разработано в Казахстане для Казахстана. Понимаем специфику бизнеса и налогов РК." },
-            { icon: "📱", title: "Мобильный доступ", desc: "Смотрите остатки в кассе, создавайте документы, проверяйте отчёты — прямо со смартфона." },
+            { icon: "📱", title: "Мобильный доступ", desc: "Продажи, склад, касса и отчёты — с телефона. Сканируйте документы камерой на месте." },
             { icon: "🔒", title: "Безопасность данных", desc: "Данные хранятся на защищённых серверах. Резервное копирование автоматическое. Только вы видите свои данные." },
           ].map((b, i) => (
             <div key={i} className="rounded-xl p-5 flex gap-4" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
@@ -480,7 +558,8 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         </div>
         <div className="flex flex-col gap-3">
           {[
-            { q: "Для кого подходит Finstat.kz?", a: "Для бухгалтеров, которые хотят работать быстрее и с меньшим количеством ошибок. Также для предпринимателей и собственников бизнеса, которые хотят видеть состояние своих финансов в режиме реального времени. Система упрощает работу бухгалтера, но не заменяет его полностью." },
+            { q: "Для кого подходит Finstat.kz?", a: "Для предпринимателей, собственников и команд, которым нужна единая система ведения бизнеса: продажи, склад, деньги, кадры, налоги и отчётность в одном месте. Также для бухгалтеров и финансовых специалистов, которые хотят работать быстрее и без лишних программ." },
+            ...LANDING_FAQ_EXTRA,
             { q: "Как работает OCR сканер документов?", a: "Сфотографируйте чек, счёт-фактуру или накладную с телефона — или загрузите JPG/PNG/PDF. AI на основе Claude Vision за 5-10 секунд распознаёт поставщика, БИН, дату, позиции, НДС. Подтверждаете — и в системе уже готовы контрагент, товары и проводки." },
             { q: "Мои данные в безопасности?", a: "Да. Данные хранятся на защищённых серверах (Frankfurt, EU). Каждый пользователь видит только свои данные. Резервное копирование автоматическое." },
             { q: "Как подготовить отчёт ФНО?", a: "Система автоматически собирает данные за период из проводок и документов, рассчитывает суммы по НК РК 2026 и формирует XML для загрузки в личный кабинет КГД. Сдача в налоговый орган выполняется вами — как при работе с любой учётной программой." },
@@ -500,8 +579,8 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
       {/* CTA */}
       <section className="max-w-4xl mx-auto px-6 py-16 text-center">
         <div className="rounded-2xl p-12" style={{ background: landing.ctaGradient }}>
-          <h2 className="text-3xl font-extrabold mb-4 text-white" style={{ letterSpacing: "-0.02em" }}>Попробуйте бесплатно</h2>
-          <p className="text-base mb-6 text-white opacity-90">30 дней без оплаты. Полный доступ к функционалу. Начните за минуту.</p>
+          <h2 className="text-3xl font-extrabold mb-4 text-white" style={{ letterSpacing: "-0.02em" }}>Ведите бизнес в одной системе</h2>
+          <p className="text-base mb-6 text-white opacity-90">30 дней бесплатно. CRM, склад, финансы, кадры и налоги — без установки и долгих внедрений.</p>
           <Link href="/auth" className="no-underline">
             <button className="px-8 py-4 rounded-xl font-semibold border-none cursor-pointer" style={{ background: "#fff", color: landing.ctaButtonText, fontSize: 15 }}>
               Начать сейчас →
@@ -514,7 +593,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
       <footer style={{ borderTop: "1px solid var(--brd)" }}>
         <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
           <div className="text-xs" style={{ color: "var(--t3)" }}>
-            © 2026 Finstat.kz. Все права защищены. Казахстан • НК РК 2026
+            © 2026 Finstat.kz — единая система ведения бизнеса. Казахстан • НК РК 2026
           </div>
           <div className="flex gap-4 flex-wrap">
             <Link href="/auth" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Войти</Link>

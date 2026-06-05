@@ -3,14 +3,14 @@ import "./globals.css";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 
 export const metadata: Metadata = {
-  title: "Finstat.kz — Бухгалтерия для бизнеса Казахстана | НК РК 2026",
-  description: "Современная ERP-система: бухгалтерия, склад, касса, документы. AI-помощник Жанара. Все расчёты по Налоговому Кодексу РК 2026 (НДС 16%).",
-  keywords: "бухгалтерия казахстан, НК РК 2026, ERP казахстан, НДС 16%, онлайн бухгалтерия, finstat.kz",
+  title: "Finstat.kz — Единая система ведения бизнеса | Казахстан",
+  description: "Единая система ведения бизнеса: продажи, склад, финансы, кадры, налоги и аналитика в одном окне. AI-помощник Жанара. НК РК 2026.",
+  keywords: "ведение бизнеса казахстан, ERP казахстан, учёт и CRM, НК РК 2026, finstat.kz, управление бизнесом",
   authors: [{ name: "Finstat.kz" }],
   alternates: { canonical: "https://finstat.kz" },
   openGraph: {
-    title: "Finstat.kz — Бухгалтерия, которой не нужен бухгалтер",
-    description: "ERP-система для бизнеса Казахстана. НК РК 2026, AI-помощник Жанара, 12 типов документов.",
+    title: "Finstat.kz — Единая система ведения бизнеса",
+    description: "Продажи, склад, финансы, кадры, налоги и аналитика — всё связано. AI Жанара, 60+ модулей, НК РК 2026.",
     url: "https://finstat.kz",
     siteName: "Finstat.kz",
     locale: "ru_KZ",
@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Finstat.kz — Бухгалтерия для бизнеса Казахстана",
-    description: "НК РК 2026, AI-помощник Жанара, 12 типов документов.",
+    title: "Finstat.kz — Единая система ведения бизнеса",
+    description: "60+ модулей для бизнеса в Казахстане. НК РК 2026, AI Жанара.",
   },
   robots: { index: true, follow: true },
   icons: {
