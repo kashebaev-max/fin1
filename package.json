@@ -5,8 +5,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/generate-landing-images.mjs && next build",
+    "build": "node scripts/generate-landing-images.mjs && node scripts/build-presentation.mjs && next build",
     "landing:images": "node scripts/generate-landing-images.mjs",
+    "presentation:build": "node scripts/generate-landing-images.mjs && node scripts/build-presentation.mjs",
+    "presentation:pdf": "node scripts/export-presentation-pdf.mjs",
     "start": "next start",
     "lint": "next lint"
   },

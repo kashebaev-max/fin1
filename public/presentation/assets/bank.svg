@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="680" rx="16" fill="#0f1117"/>
+  <rect x="0" y="0" width="1200" height="32" rx="16" fill="#0a0c10"/>
+  <circle cx="18" cy="16" r="5" fill="#EF4444"/><circle cx="34" cy="16" r="5" fill="#F59E0B"/><circle cx="50" cy="16" r="5" fill="#10B981"/>
+  <text x="72" y="20" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="11">Деньги и банк</text>
+  
+  
+  <rect x="12" y="40" width="180" height="628" rx="10" fill="#141720" stroke="#2a2f3d"/>
+  <text x="28" y="64" fill="url(#g)" font-size="16" font-weight="700" font-family="Segoe UI, Arial, sans-serif">F</text>
+  <text x="22" y="72" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">⬡ Главная</text><text x="22" y="102" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📸 Сканер</text><text x="22" y="132" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">👥 Контрагенты</text><rect x="8" y="146" width="164" height="26" rx="6" fill="#6366F122"/><text x="22" y="162" fill="#6366F1" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="600">📒 Проводки</text><text x="22" y="192" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">◎ Зарплата</text>
+  <rect x="208" y="48" width="980" height="40" rx="8" fill="#1a1d27" stroke="#2a2f3d"/>
+  <text x="224" y="74" fill="#e8eaef" font-size="13" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Банк · платёжные поручения</text>
+  <rect x="224" y="100" width="964" height="420" rx="10" fill="#1a1d27" stroke="#2a2f3d"/>
+  <text x="238" y="128" fill="#e8eaef" font-size="12" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Выписка импортирована · 248 операций</text>
+  
+  <text x="238" y="168" fill="#6b7280" font-size="9" font-family="Segoe UI, Arial, sans-serif">Поступление</text>
+  <text x="320" y="168" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">ТОО «Алма»</text>
+  <text x="1140" y="168" text-anchor="end" fill="#10B981" font-size="11" font-weight="700" font-family="Segoe UI, Arial, sans-serif">+4 200 000 ₸</text>
+  <text x="238" y="224" fill="#6b7280" font-size="9" font-family="Segoe UI, Arial, sans-serif">Оплата</text>
+  <text x="320" y="224" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">Аренда офиса</text>
+  <text x="1140" y="224" text-anchor="end" fill="#EF4444" font-size="11" font-weight="700" font-family="Segoe UI, Arial, sans-serif">−350 000 ₸</text>
+  <text x="238" y="280" fill="#6b7280" font-size="9" font-family="Segoe UI, Arial, sans-serif">Оплата</text>
+  <text x="320" y="280" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">НДС к уплате</text>
+  <text x="1140" y="280" text-anchor="end" fill="#F59E0B" font-size="11" font-weight="700" font-family="Segoe UI, Arial, sans-serif">−1 120 000 ₸</text>
+  <rect x="238" y="360" width="220" height="36" rx="8" fill="url(#g)"/>
+  <text x="348" y="383" text-anchor="middle" fill="#fff" font-size="11" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Сопоставить с документами</text>
+</svg>

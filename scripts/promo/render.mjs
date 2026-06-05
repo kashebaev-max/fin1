@@ -64,6 +64,18 @@ const page = await browser.newPage({
 await page.goto(htmlUrl, { waitUntil: "networkidle" });
 await page.waitForFunction("window.__promoReady === true && typeof window.seek === 'function'");
 
+const boot = await page.evaluate(() => ({
+  promoViz: !!window.PromoViz,
+  vizBodies: document.querySelectorAll(".viz-body").length,
+}));
+if (!boot.promoViz || boot.vizBodies < 50) {
+  console.error("Ошибка загрузки промо:", boot);
+  const errs = await page.evaluate(() => window.__promoErrors || []);
+  if (errs.length) console.error(errs);
+  await browser.close();
+  process.exit(1);
+}
+
 const duration = await page.evaluate(() => window.PROMO.duration);
 const totalFrames = Math.ceil((duration / 1000) * fps);
 

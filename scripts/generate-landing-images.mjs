@@ -207,11 +207,110 @@ function scenePayroll(C) {
   return frame(C, body, "Кадры и зарплата");
 }
 
+function sceneCrm(C) {
+  const body = `
+  ${sidebar(C, "Контрагенты")}
+  <rect x="208" y="48" width="${W - 220}" height="40" rx="8" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="224" y="74" fill="${C.t1}" font-size="13" font-weight="600" font-family="${FF}">CRM · Воронка продаж</text>
+  <rect x="224" y="100" width="360" height="420" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  ${[
+    ["Лиды", "52", 1],
+    ["Переговоры", "18", 0.68],
+    ["Счёт выставлен", "9", 0.42],
+    ["Оплачено", "6", 0.28],
+  ].map(([l, n, w], i) => `
+  <text x="238" y="${140 + i * 72}" fill="${C.t2}" font-size="10" font-family="${FF}">${esc(l)}</text>
+  <rect x="360" y="${124 + i * 72}" width="${Math.round(280 * w)}" height="28" rx="6" fill="url(#g)" opacity="0.9"/>
+  <text x="660" y="${144 + i * 72}" fill="${C.t1}" font-size="11" font-weight="700" font-family="${FF}">${esc(n)}</text>`).join("")}
+  <rect x="600" y="100" width="${W - 620}" height="200" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="616" y="128" fill="${C.t1}" font-size="12" font-weight="600" font-family="${FF}">Заказы</text>
+  <text x="616" y="156" fill="${C.t2}" font-size="10" font-family="${FF}">№1247 · 890 000 ₸ · отгружен</text>
+  <text x="616" y="178" fill="${C.t2}" font-size="10" font-family="${FF}">№1251 · 2 400 000 ₸ · в работе</text>
+  <rect x="600" y="320" width="${W - 620}" height="200" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="616" y="348" fill="${C.t1}" font-size="12" font-weight="600" font-family="${FF}">Контрагенты</text>
+  <text x="616" y="376" fill="${C.t2}" font-size="10" font-family="${FF}">ТОО «Алма» · клиент</text>
+  <text x="616" y="398" fill="${C.t2}" font-size="10" font-family="${FF}">ТОО «Фарма-Life» · поставщик</text>`;
+  return frame(C, body, "Продажи и CRM");
+}
+
+function scenePos(C) {
+  const body = `
+  <rect x="80" y="80" width="440" height="480" rx="16" fill="${C.card}" stroke="${C.brd}" filter="url(#shadow)"/>
+  <text x="100" y="118" fill="${C.t1}" font-size="16" font-weight="700" font-family="${FF}">🛒 Касса POS</text>
+  <text x="100" y="148" fill="${C.t3}" font-size="10" font-family="${FF}">Смена №12 · кассир Айгуль</text>
+  ${["Молоко 3.2%", "Хлеб белый", "Масло 200г"].map((n, i) => `
+  <text x="100" y="${190 + i * 32}" fill="${C.t2}" font-size="11" font-family="${FF}">${esc(n)}</text>
+  <text x="480" y="${190 + i * 32}" text-anchor="end" fill="${C.t1}" font-size="11" font-family="${FF}">${[450, 280, 890][i]} ₸</text>`).join("")}
+  <line x1="100" y1="300" x2="500" y2="300" stroke="${C.brd}"/>
+  <text x="100" y="336" fill="${C.t1}" font-size="14" font-weight="700" font-family="${FF}">Итого</text>
+  <text x="480" y="336" text-anchor="end" fill="${C.green}" font-size="18" font-weight="700" font-family="${FF}">12 450 ₸</text>
+  <rect x="100" y="360" width="400" height="44" rx="10" fill="${C.accent}22" stroke="${C.accent}"/>
+  <text x="300" y="388" text-anchor="middle" fill="${C.accent}" font-size="12" font-weight="700" font-family="${FF}">Kaspi QR · оплатить</text>
+  <rect x="540" y="80" width="${W - 580}" height="480" rx="12" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="560" y="118" fill="${C.t1}" font-size="14" font-weight="600" font-family="${FF}">После оплаты автоматически</text>
+  <text x="560" y="152" fill="${C.t2}" font-size="10" font-family="${FF}">✓ Чек пробит</text>
+  <text x="560" y="176" fill="${C.t2}" font-size="10" font-family="${FF}">✓ Склад списан</text>
+  <text x="560" y="200" fill="${C.t2}" font-size="10" font-family="${FF}">✓ Выручка в KPI</text>
+  <text x="560" y="224" fill="${C.t2}" font-size="10" font-family="${FF}">✓ Z-отчёт смены</text>`;
+  return frame(C, body, "Торговля и POS");
+}
+
+function sceneBank(C) {
+  const body = `
+  ${sidebar(C, "Проводки")}
+  <rect x="208" y="48" width="${W - 220}" height="40" rx="8" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="224" y="74" fill="${C.t1}" font-size="13" font-weight="600" font-family="${FF}">Банк · платёжные поручения</text>
+  <rect x="224" y="100" width="${W - 236}" height="420" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="238" y="128" fill="${C.t1}" font-size="12" font-weight="600" font-family="${FF}">Выписка импортирована · 248 операций</text>
+  ${[
+    ["Поступление", "ТОО «Алма»", "+4 200 000 ₸", C.green],
+    ["Оплата", "Аренда офиса", "−350 000 ₸", C.red],
+    ["Оплата", "НДС к уплате", "−1 120 000 ₸", C.amber],
+  ].map(([t, n, s, col], i) => `
+  <text x="238" y="${168 + i * 56}" fill="${C.t3}" font-size="9" font-family="${FF}">${esc(t)}</text>
+  <text x="320" y="${168 + i * 56}" fill="${C.t1}" font-size="10" font-family="${FF}">${esc(n)}</text>
+  <text x="${W - 60}" y="${168 + i * 56}" text-anchor="end" fill="${col}" font-size="11" font-weight="700" font-family="${FF}">${esc(s)}</text>`).join("")}
+  <rect x="238" y="360" width="220" height="36" rx="8" fill="url(#g)"/>
+  <text x="348" y="383" text-anchor="middle" fill="#fff" font-size="11" font-weight="600" font-family="${FF}">Сопоставить с документами</text>`;
+  return frame(C, body, "Деньги и банк");
+}
+
+function sceneAnalytics(C) {
+  const body = `
+  ${sidebar(C, "Главная")}
+  <rect x="208" y="48" width="${W - 220}" height="40" rx="8" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="224" y="74" fill="${C.t1}" font-size="13" font-weight="600" font-family="${FF}">Аналитика и бюджет</text>
+  <rect x="224" y="100" width="280" height="80" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="238" y="122" fill="${C.t3}" font-size="9" font-family="${FF}">Выручка YTD</text>
+  <text x="238" y="158" fill="${C.green}" font-size="20" font-weight="700" font-family="${FF}">14,2 млн ₸</text>
+  <rect x="520" y="100" width="280" height="80" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="534" y="122" fill="${C.t3}" font-size="9" font-family="${FF}">EBITDA</text>
+  <text x="534" y="158" fill="${C.accent}" font-size="20" font-weight="700" font-family="${FF}">3,85 млн ₸</text>
+  <rect x="816" y="100" width="${W - 828}" height="80" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="830" y="122" fill="${C.t3}" font-size="9" font-family="${FF}">Cash</text>
+  <text x="830" y="158" fill="${C.blue}" font-size="20" font-weight="700" font-family="${FF}">2,4 млн ₸</text>
+  <rect x="224" y="196" width="520" height="220" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="238" y="220" fill="${C.t1}" font-size="12" font-weight="600" font-family="${FF}">P&L · план vs факт</text>
+  ${[0.72, 0.58, 0.74].map((v, i) => `
+  <rect x="${250 + i * 160}" y="${380 - v * 140}" width="100" height="${v * 140}" rx="6" fill="url(#g)" opacity="${0.5 + i * 0.15}"/>`).join("")}
+  <rect x="760" y="196" width="${W - 772}" height="220" rx="10" fill="${C.card}" stroke="${C.brd}"/>
+  <text x="774" y="220" fill="${C.t1}" font-size="12" font-weight="600" font-family="${FF}">Прогноз кэшфлоу</text>
+  <polyline points="774,380 820,340 870,350 920,300 980,280 1040,260 1100,240" fill="none" stroke="${C.accent}" stroke-width="3"/>`;
+  return frame(C, body, "Аналитика");
+}
+
 const FILES = {
   "hero-dashboard.svg": sceneHero,
   "ocr-scanner.svg": sceneOcr,
   "zhanara-chat.svg": sceneZhanara,
   "payroll.svg": scenePayroll,
+};
+
+const PRESENTATION_FILES = {
+  "crm.svg": sceneCrm,
+  "pos.svg": scenePos,
+  "bank.svg": sceneBank,
+  "analytics.svg": sceneAnalytics,
 };
 
 for (const [theme, C] of Object.entries(PALETTES)) {
@@ -222,4 +321,11 @@ for (const [theme, C] of Object.entries(PALETTES)) {
   }
 }
 
+const presDir = path.join(ROOT, "presentation", "assets");
+fs.mkdirSync(presDir, { recursive: true });
+for (const [name, fn] of Object.entries(PRESENTATION_FILES)) {
+  fs.writeFileSync(path.join(presDir, name), fn(PALETTES.dark), "utf8");
+}
+
 console.log("Landing images → public/landing/dark|light/ (4 files each)");
+console.log("Presentation images → presentation/assets/ (crm, pos, bank, analytics)");

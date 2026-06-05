@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="680" rx="16" fill="#0f1117"/>
+  <rect x="0" y="0" width="1200" height="32" rx="16" fill="#0a0c10"/>
+  <circle cx="18" cy="16" r="5" fill="#EF4444"/><circle cx="34" cy="16" r="5" fill="#F59E0B"/><circle cx="50" cy="16" r="5" fill="#10B981"/>
+  <text x="72" y="20" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" font-size="11">Кадры и зарплата</text>
+  
+  
+  <rect x="12" y="40" width="180" height="628" rx="10" fill="#141720" stroke="#2a2f3d"/>
+  <text x="28" y="64" fill="url(#g)" font-size="16" font-weight="700" font-family="Segoe UI, Arial, sans-serif">F</text>
+  <text x="22" y="72" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">⬡ Главная</text><text x="22" y="102" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📸 Сканер</text><text x="22" y="132" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">👥 Контрагенты</text><text x="22" y="162" fill="#9ca3af" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400">📒 Проводки</text><rect x="8" y="176" width="164" height="26" rx="6" fill="#6366F122"/><text x="22" y="192" fill="#6366F1" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="600">◎ Зарплата</text>
+  <rect x="208" y="48" width="980" height="40" rx="8" fill="#1a1d27" stroke="#2a2f3d"/>
+  <text x="224" y="74" fill="#e8eaef" font-size="13" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Зарплата · май 2026</text>
+  <rect x="224" y="100" width="964" height="420" rx="10" fill="#1a1d27" stroke="#2a2f3d"/>
+  <text x="238" y="128" fill="#e8eaef" font-size="12" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Табель Т-13 · автозаполнение</text>
+  <rect x="250" y="150" width="36" height="28" rx="4" fill="#0f1117" stroke="#2a2f3d"/><text x="268" y="168" text-anchor="middle" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">Я</text><rect x="294" y="150" width="36" height="28" rx="4" fill="#0f1117" stroke="#2a2f3d"/><text x="312" y="168" text-anchor="middle" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">Я</text><rect x="338" y="150" width="36" height="28" rx="4" fill="#0f1117" stroke="#2a2f3d"/><text x="356" y="168" text-anchor="middle" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">В</text><rect x="382" y="150" width="36" height="28" rx="4" fill="#F59E0B33" stroke="#2a2f3d"/><text x="400" y="168" text-anchor="middle" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">П</text><rect x="426" y="150" width="36" height="28" rx="4" fill="#0f1117" stroke="#2a2f3d"/><text x="444" y="168" text-anchor="middle" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">Я</text><rect x="470" y="150" width="36" height="28" rx="4" fill="#0f1117" stroke="#2a2f3d"/><text x="488" y="168" text-anchor="middle" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">Я</text><rect x="514" y="150" width="36" height="28" rx="4" fill="#0f1117" stroke="#2a2f3d"/><text x="532" y="168" text-anchor="middle" fill="#e8eaef" font-size="10" font-family="Segoe UI, Arial, sans-serif">В</text>
+  <text x="238" y="220" fill="#e8eaef" font-size="12" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Начисление</text>
+  <text x="238" y="248" fill="#9ca3af" font-size="10" font-family="Segoe UI, Arial, sans-serif">ИПН 10% · ОПВ 10% · ВОСМС 2% · на руки</text>
+  <text x="238" y="280" fill="#10B981" font-size="20" font-weight="700" font-family="Segoe UI, Arial, sans-serif">4 850 000 ₸ к выплате</text>
+  <rect x="238" y="320" width="180" height="36" rx="8" fill="url(#g)"/>
+  <text x="328" y="343" text-anchor="middle" fill="#fff" font-size="11" font-weight="600" font-family="Segoe UI, Arial, sans-serif">Провести в бухгалтерию</text>
+</svg>

@@ -77,6 +77,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
             <a href="#ocr" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>OCR</a>
             <a href="#ai" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>AI Жанара</a>
             <a href="#faq" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>FAQ</a>
+            <Link href="/presentation" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Презентация системы</Link>
 
             {!landing.preferLight && (
               <button onClick={toggleTheme}
@@ -129,11 +130,11 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
               Начать бесплатно →
             </button>
           </Link>
-          <a href="#features" className="no-underline">
+          <Link href="/presentation" className="no-underline">
             <button className="px-8 py-4 rounded-xl font-semibold cursor-pointer" style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t1)", fontSize: 15 }}>
-              Посмотреть возможности
+              Презентация системы
             </button>
-          </a>
+          </Link>
         </div>
         <div className="text-xs mb-10" style={{ color: "var(--t3)" }}>
           ✓ Без установки &nbsp;&nbsp; ✓ Замена 1С и Excel &nbsp;&nbsp; ✓ Kaspi-оплата &nbsp;&nbsp; ✓ Поддержка 💬 на сайте
@@ -596,6 +597,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
             © 2026 Finstat.kz — единая система ведения бизнеса. Казахстан • НК РК 2026
           </div>
           <div className="flex gap-4 flex-wrap">
+            <Link href="/presentation" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Презентация системы</Link>
             <Link href="/auth" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Войти</Link>
             <Link href="/legal/terms" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Оферта</Link>
             <Link href="/legal/privacy" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Конфиденциальность</Link>

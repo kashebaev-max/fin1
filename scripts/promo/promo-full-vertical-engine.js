@@ -103,13 +103,8 @@
   ];
 
   var MOCK = {
-    crm: [["Лид", "ТОО «Алма»"], ["Сделка", "2.4 млн ₸"], ["Этап", "Переговоры"]],
-    hr: [["Сотрудник", "Иванов А.С."], ["Оклад", "450 000 ₸"], ["ИПН", "10%"]],
-    warehouse: [["Товар", "Молоко 3.2%"], ["Остаток", "1 240 шт"], ["Резерв", "80"]],
-    reports: [["ФНО 300", "НДС 16%"], ["К уплате", "1 120 000 ₸"], ["Срок", "25.04"]],
-    pos: [["Чек", "№004521"], ["Сумма", "12 450 ₸"], ["Оплата", "Kaspi QR"]],
     check: [["БИН", "110640020454"], ["ЮЛ", "ТОО «Фарма-Life»"], ["Риск", "Низкий"]],
-    default: [["Статус", "Проведено"], ["Проводки", "Созданы"], ["Склад", "Обновлён"]],
+    ocr: [["Контрагент", "ТОО «Алма»"], ["Сумма", "2 480 000 ₸"], ["НДС 16%", "396 800 ₸"]],
   };
 
   function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
@@ -140,7 +135,7 @@
   }
 
   function mockRows(key) {
-    var rows = MOCK[key] || MOCK.default;
+    var rows = MOCK[key] || [["Данные", "Загружены"], ["Статус", "OK"]];
     return rows.map(function (r) {
       return '<div class="mrow"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + '</span></div>';
     }).join("");
@@ -151,19 +146,20 @@
       return '<div class="v" style="align-items:center;text-align:center">' +
         '<div class="logo" data-el="logo">₸</div>' +
         '<div class="h1" data-el="t1">Finstat<span style="color:var(--accent)">.kz</span></div>' +
-        '<div class="sub" data-el="t2">Полный обзор системы</div>' +
-        '<div class="sub" data-el="t3" style="font-size:20px;margin-top:8px">60+ модулей · НК РК 2026 · AI</div></div>';
+        '<div class="sub" data-el="t2">Единая система ведения бизнеса</div>' +
+        '<div class="sub" data-el="t3" style="font-size:20px;margin-top:8px">Продажи · Склад · Финансы · Кадры · Налоги</div></div>';
     }
     if (def.type === "dashboard") {
       return '<div class="v">' +
         '<div class="h2" data-el="h">Главная панель</div>' +
         '<div class="sub">KPI и аналитика в реальном времени</div>' +
         '<div class="kpis">' +
-        '<div class="card kpi" data-el="k0"><div class="lbl">Выручка</div><div class="val" style="color:var(--green)" data-c="14200000">0 ₸</div></div>' +
-        '<div class="card kpi" data-el="k1"><div class="lbl">Прибыль</div><div class="val" data-c="3850000">0 ₸</div></div>' +
-        '<div class="card kpi" data-el="k2"><div class="lbl">Налоги</div><div class="val" data-c="1120000">0 ₸</div></div>' +
-        '<div class="card kpi" data-el="k3"><div class="lbl">Дебиторка</div><div class="val" data-c="2400000">0 ₸</div></div>' +
-        '</div><div class="card chart" data-el="chart">' +
+        '<div class="kpis kpis-lg">' +
+        '<div class="card kpi" data-el="k0"><div class="lbl">Выручка</div><div class="val" style="color:var(--green)" data-c="14200000" data-suffix=" ₸">0 ₸</div></div>' +
+        '<div class="card kpi" data-el="k1"><div class="lbl">Прибыль</div><div class="val" data-c="3850000" data-suffix=" ₸">0 ₸</div></div>' +
+        '<div class="card kpi" data-el="k2"><div class="lbl">Налоги</div><div class="val" data-c="1120000" data-suffix=" ₸">0 ₸</div></div>' +
+        '<div class="card kpi" data-el="k3"><div class="lbl">Дебиторка</div><div class="val" data-c="2400000" data-suffix=" ₸">0 ₸</div></div>' +
+        '</div><div class="card chart chart-lg" data-el="chart">' +
         [0.4,0.55,0.48,0.72,0.65,0.88].map(function(_,i){return '<div class="bar" data-bar="'+i+'"></div>';}).join("") +
         '</div></div>';
     }
@@ -173,7 +169,7 @@
         '<div class="line" style="width:85%"></div><div class="line" style="width:70%"></div><div class="line" style="width:90%"></div>' +
         '<div class="scanline" data-el="scan"></div></div>' +
         '<div class="card mock flex-col" style="flex:1" data-el="fields">' +
-        mockRows("default") + '</div></div></div>';
+        mockRows("ocr") + '</div></div></div>';
     }
     if (def.type === "highlight" && def.id === "zhanara") {
       return '<div class="v"><div class="h2" style="color:var(--purple)">✦ AI Жанара</div><div class="sub">Вопросы по налогам и учёту</div>' +
@@ -183,7 +179,7 @@
     }
     if (def.type === "highlight" && def.id === "bin") {
       return '<div class="v"><div class="h2">Проверка БИН</div><div class="sub">Гос. реестр data.egov.kz</div>' +
-        '<div class="card" style="padding:20px;font-size:28px;font-weight:800;letter-spacing:.1em;font-family:monospace" data-el="bin">—</div>' +
+        '<div class="card" style="padding:28px;font-size:40px;font-weight:800;letter-spacing:.08em;font-family:monospace" data-el="bin">—</div>' +
         '<div class="card mock" data-el="res" style="opacity:0">' + mockRows("check") + '</div></div>';
     }
     if (def.type === "group") {
@@ -197,13 +193,20 @@
     }
     if (def.type === "feature") {
       var g = def.group, it = def.item;
-      return '<div class="v">' +
+      var viz = "";
+      if (window.PromoViz) {
+        viz = window.PromoViz.render(it.key, g.color);
+      } else {
+        console.error("PromoViz не загружен — проверьте promo-full-vertical-viz.js");
+        viz = '<div class="card mock">' + mockRows(it.key) + "</div>";
+      }
+      return '<div class="v feature-v">' +
         '<div class="counter" style="color:' + g.color + '">' + esc(g.name) + ' · ' + def.fi + '/' + def.ftotal + '</div>' +
         '<div class="feat-head">' +
         '<div class="feat-ic" style="background:' + g.color + '22;border:1px solid ' + g.color + '55" data-el="ic">' + it.icon + '</div>' +
-        '<div><div class="h2" data-el="nm" style="font-size:36px">' + esc(it.name) + '</div>' +
-        '<div class="sub" data-el="ds">' + esc(it.desc) + '</div></div></div>' +
-        '<div class="card mock" data-el="mock">' + mockRows(it.key) + '</div></div>';
+        '<div><div class="feat-title" data-el="nm">' + esc(it.name) + '</div>' +
+        '<div class="feat-desc" data-el="ds">' + esc(it.desc) + '</div></div></div>' +
+        '<div class="viz-wrap" data-el="viz">' + viz + '</div></div>';
     }
     if (def.type === "mega") {
       var all = [];
@@ -256,7 +259,8 @@
       var cnt = clamp((p - 0.15) / 0.45, 0, 1);
       el.querySelectorAll("[data-c]").forEach(function (n) {
         var t = +n.getAttribute("data-c");
-        n.textContent = fmt(t * easeOut(cnt)) + " ₸";
+        var suf = n.getAttribute("data-suffix") || " ₸";
+        n.textContent = fmt(t * easeOut(cnt)) + suf;
       });
       el.querySelectorAll("[data-bar]").forEach(function (b, k) {
         var h = [0.4,0.55,0.48,0.72,0.65,0.88][k];
@@ -287,10 +291,12 @@
       reveal(el.querySelector('[data-el="nm"]'), p, { delay: 0.22 });
       reveal(el.querySelector('[data-el="cnt"]'), p, { delay: 0.38 });
     } else if (def.type === "feature") {
-      reveal(el.querySelector('[data-el="ic"]'), p, { delay: 0.05, dy: 16 });
-      reveal(el.querySelector('[data-el="nm"]'), p, { delay: 0.15 });
-      reveal(el.querySelector('[data-el="ds"]'), p, { delay: 0.25 });
-      reveal(el.querySelector('[data-el="mock"]'), p, { delay: 0.38 });
+      reveal(el.querySelector('[data-el="ic"]'), p, { delay: 0.02, dy: 12 });
+      reveal(el.querySelector('[data-el="nm"]'), p, { delay: 0.1 });
+      reveal(el.querySelector('[data-el="ds"]'), p, { delay: 0.18 });
+      if (window.PromoViz) {
+        window.PromoViz.anim(el, def.item.key, p, { reveal: reveal, fmt: fmt, easeOut: easeOut, clamp: clamp, lerp: lerp });
+      }
     } else if (def.type === "mega") {
       reveal(el.querySelector('[data-el="h"]'), p, { delay: 0 });
       var mega = el.querySelector('[data-el="mega"]');
