@@ -62,8 +62,8 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         </div>
       )}
       {/* Header */}
-      <header style={{ borderBottom: "1px solid var(--brd)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 10, backdropFilter: "blur(8px)" }}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+      <header style={{ borderBottom: "1px solid var(--brd)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 50, backdropFilter: "blur(8px)" }}>
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4 gap-3">
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center font-extrabold text-white" style={{ width: 36, height: 36, borderRadius: 10, background: landing.gradient, fontSize: 16 }}>F</div>
             <div>
@@ -71,37 +71,37 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
               <div className="text-[9px] tracking-widest" style={{ color: "var(--t3)" }}>ЕДИНАЯ СИСТЕМА ДЛЯ БИЗНЕСА</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <a href="#modules" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Модули</a>
-            <a href="#features" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Возможности</a>
-            <a href="#ocr" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>OCR</a>
-            <a href="#ai" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>AI Жанара</a>
-            <a href="#faq" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>FAQ</a>
-            <Link href="/presentation" className="text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Презентация системы</Link>
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+            <a href="#modules" className="hidden xl:inline text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Модули</a>
+            <a href="#features" className="hidden xl:inline text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Возможности</a>
+            <a href="#ocr" className="hidden lg:inline text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>OCR</a>
+            <a href="#ai" className="hidden lg:inline text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>AI Жанара</a>
+            <a href="#faq" className="hidden lg:inline text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>FAQ</a>
+            <a href="/presentation" className="hidden md:inline text-xs font-medium no-underline" style={{ color: "var(--t2)" }}>Презентация системы</a>
 
             {!landing.preferLight && (
-              <button onClick={toggleTheme}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer border-none"
+              <button type="button" onClick={toggleTheme}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer border-none flex-shrink-0"
                 style={{ background: "var(--card)", border: "1px solid var(--brd)", color: "var(--t3)", fontSize: 12 }}>
                 <span style={{ fontSize: 14 }}>{theme === "dark" ? "☀️" : "🌙"}</span>
-                <span className="font-medium">{theme === "dark" ? "Светлая" : "Тёмная"}</span>
+                <span className="font-medium hidden sm:inline">{theme === "dark" ? "Светлая" : "Тёмная"}</span>
               </button>
             )}
 
-            <Link
+            <a
               href="/auth"
-              className="no-underline px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer inline-block"
+              className="no-underline px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer inline-block flex-shrink-0"
               style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t2)" }}
             >
               Войти
-            </Link>
-            <Link
+            </a>
+            <a
               href="/auth"
-              className="no-underline px-5 py-2 rounded-lg text-white text-xs font-semibold cursor-pointer inline-block"
+              className="no-underline px-5 py-2 rounded-lg text-white text-xs font-semibold cursor-pointer inline-block flex-shrink-0"
               style={{ background: landing.gradient }}
             >
               Начать бесплатно
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -133,20 +133,20 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           ))}
         </div>
         <div className="flex gap-3 justify-center mb-6">
-          <Link
+          <a
             href="/auth"
             className="no-underline px-8 py-4 rounded-xl text-white font-semibold cursor-pointer inline-block"
             style={{ background: landing.gradient, fontSize: 15 }}
           >
             Начать бесплатно →
-          </Link>
-          <Link
+          </a>
+          <a
             href="/presentation"
             className="no-underline px-8 py-4 rounded-xl font-semibold cursor-pointer inline-block"
             style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t1)", fontSize: 15 }}
           >
             Презентация системы
-          </Link>
+          </a>
         </div>
         <div className="text-xs mb-10" style={{ color: "var(--t3)" }}>
           ✓ Без установки &nbsp;&nbsp; ✓ Замена 1С и Excel &nbsp;&nbsp; ✓ Kaspi-оплата &nbsp;&nbsp; ✓ Поддержка 💬 на сайте
@@ -594,13 +594,13 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         <div className="rounded-2xl p-12" style={{ background: landing.ctaGradient }}>
           <h2 className="text-3xl font-extrabold mb-4 text-white" style={{ letterSpacing: "-0.02em" }}>Ведите бизнес в одной системе</h2>
           <p className="text-base mb-6 text-white opacity-90">30 дней бесплатно. CRM, склад, финансы, кадры и налоги — без установки и долгих внедрений.</p>
-          <Link
+          <a
             href="/auth"
             className="no-underline px-8 py-4 rounded-xl font-semibold cursor-pointer inline-block"
             style={{ background: "#fff", color: landing.ctaButtonText, fontSize: 15 }}
           >
             Начать сейчас →
-          </Link>
+          </a>
         </div>
       </section>
 
@@ -611,10 +611,10 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
             © 2026 Finstat.kz — единая система ведения бизнеса. Казахстан • НК РК 2026
           </div>
           <div className="flex gap-4 flex-wrap">
-            <Link href="/presentation" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Презентация системы</Link>
-            <Link href="/auth" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Войти</Link>
-            <Link href="/legal/terms" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Оферта</Link>
-            <Link href="/legal/privacy" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Конфиденциальность</Link>
+            <a href="/presentation" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Презентация системы</a>
+            <a href="/auth" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Войти</a>
+            <a href="/legal/terms" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Оферта</a>
+            <a href="/legal/privacy" className="text-xs no-underline" style={{ color: "var(--t2)" }}>Конфиденциальность</a>
             <a href="mailto:info@finstat.kz" className="text-xs no-underline" style={{ color: "var(--t2)" }}>info@finstat.kz</a>
           </div>
         </div>

@@ -93,8 +93,8 @@ function AuthForm() {
           throw new Error("Аккаунт заблокирован. Обратитесь в поддержку.");
         }
 
-        router.push("/dashboard");
-        router.refresh();
+        window.location.assign("/dashboard");
+        return;
       } else {
         if (!fullName.trim()) throw new Error("Укажите ФИО");
         if (!companyName.trim()) throw new Error("Укажите название организации");
@@ -120,8 +120,7 @@ function AuthForm() {
 
         if (data.session) {
           setSuccess("Регистрация успешна! Тестовый период 30 дней активирован.");
-          router.push("/dashboard");
-          router.refresh();
+          window.location.assign("/dashboard");
           return;
         }
 
