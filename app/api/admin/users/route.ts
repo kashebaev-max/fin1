@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 
@@ -23,6 +23,63 @@ async function requirePlatformAdmin() {
   }
 
   return { adminId: user.id, profile };
+}
+
+/** Продлевает доступ: от max(expires_at, now) + days. */
+async function grantAccess(
+  admin: SupabaseClient,
+  userId: string,
+  adminId: string,
+  days: number,
+  mode: "trial" | "active" = "active"
+) {
+  const { data: existing } = await admin
+    .from("subscriptions")
+    .select("expires_at, plan, status")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const now = new Date();
+  const currentExpiry = existing?.expires_at ? new Date(existing.expires_at) : now;
+  const baseDate = currentExpiry > now ? currentExpiry : now;
+  const expires = new Date(baseDate.getTime() + days * 86400000);
+
+  const status = mode === "trial" ? "trial" : "active";
+  const plan =
+    mode === "trial"
+      ? "trial"
+      : existing?.plan && existing.plan !== "trial"
+        ? existing.plan
+        : "monthly_once";
+
+  const row: Record<string, string> = {
+    user_id: userId,
+    status,
+    plan,
+    expires_at: expires.toISOString(),
+    updated_at: now.toISOString(),
+  };
+  if (mode === "trial") row.trial_ends_at = expires.toISOString();
+
+  await admin.from("subscriptions").upsert(row, { onConflict: "user_id" });
+
+  await admin.from("subscription_events").insert({
+    user_id: userId,
+    event_type: "admin_grant_access",
+    payload: {
+      days,
+      mode,
+      new_expires_at: expires.toISOString(),
+      granted_by: adminId,
+      previous_expires_at: existing?.expires_at ?? null,
+    },
+  });
+
+  return expires;
+}
+
+function formatExpiry(date: Date) {
+  return date.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 }
 
 export async function POST(request: Request) {
@@ -70,46 +127,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, message: "Пользователь разблокирован" });
     }
 
-    case "extend_trial": {
+    case "grant_access": {
       const addDays = typeof days === "number" && days > 0 ? days : 30;
-      const base = new Date();
-      const expires = new Date(base.getTime() + addDays * 86400000);
-      await admin
-        .from("subscriptions")
-        .upsert(
-          {
-            user_id: userId,
-            status: "trial",
-            plan: "trial",
-            trial_ends_at: expires.toISOString(),
-            expires_at: expires.toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
+      const expires = await grantAccess(admin, userId, auth.adminId!, addDays, "active");
       return NextResponse.json({
         ok: true,
-        message: `Триал продлён на ${addDays} дн.`,
+        message: `Доступ выдан на ${addDays} дн. (до ${formatExpiry(expires)})`,
+        expires_at: expires.toISOString(),
+      });
+    }
+
+    case "extend_trial": {
+      const addDays = typeof days === "number" && days > 0 ? days : 30;
+      const expires = await grantAccess(admin, userId, auth.adminId!, addDays, "trial");
+      return NextResponse.json({
+        ok: true,
+        message: `Триал продлён на ${addDays} дн. (до ${formatExpiry(expires)})`,
         expires_at: expires.toISOString(),
       });
     }
 
     case "activate": {
       const addDays = typeof days === "number" && days > 0 ? days : 30;
-      const expires = new Date(Date.now() + addDays * 86400000);
-      await admin
-        .from("subscriptions")
-        .upsert(
-          {
-            user_id: userId,
-            status: "active",
-            plan: "monthly_once",
-            expires_at: expires.toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
-      return NextResponse.json({ ok: true, message: `Подписка активирована на ${addDays} дн.` });
+      const expires = await grantAccess(admin, userId, auth.adminId!, addDays, "active");
+      return NextResponse.json({
+        ok: true,
+        message: `Подписка активирована на ${addDays} дн. (до ${formatExpiry(expires)})`,
+        expires_at: expires.toISOString(),
+      });
     }
 
     case "suspend": {

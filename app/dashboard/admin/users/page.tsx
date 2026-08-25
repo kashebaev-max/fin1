@@ -71,15 +71,17 @@ export default function UsersPage() {
   }
 
   async function runAdminAction(action: string, userId: string, days?: number) {
+    const dayLabel = days ? ` на ${days} дн.` : "";
     const labels: Record<string, string> = {
       block: "заблокировать",
       unblock: "разблокировать",
       delete: "удалить навсегда",
-      extend_trial: "продлить триал",
-      activate: "активировать подписку",
+      grant_access: `выдать доступ${dayLabel}`,
+      extend_trial: `продлить триал${dayLabel}`,
+      activate: `активировать подписку${dayLabel}`,
       suspend: "приостановить подписку",
     };
-    if (!confirm(`Вы уверены, что хотите ${labels[action] || action} этого пользователя?`)) return;
+    if (!confirm(`Вы уверены, что хотите ${labels[action] || action} этому пользователю?`)) return;
 
     setActionLoading(true);
     setActionMsg("");
@@ -93,6 +95,14 @@ export default function UsersPage() {
       if (!res.ok) throw new Error(data.error || "Ошибка");
       setActionMsg("✅ " + (data.message || "Готово"));
       await loadUsers();
+      if (selectedUser && action !== "delete") {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle();
+        setSelectedUser({ ...selectedUser, sub: sub ?? selectedUser.sub });
+      }
       if (action === "delete") setSelectedUser(null);
     } catch (e: unknown) {
       setActionMsg("❌ " + (e instanceof Error ? e.message : "Ошибка"));
@@ -401,7 +411,32 @@ export default function UsersPage() {
             )}
 
             {!selectedUser.user.is_platform_admin && (
-              <div className="grid grid-cols-2 gap-2 mt-3">
+              <>
+                <div className="mt-3 mb-2">
+                  <div className="text-[10px] font-bold mb-2" style={{ color: "#10B981" }}>🔓 ВЫДАТЬ ДОСТУП</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { days: 2, label: "2 дня" },
+                      { days: 7, label: "1 неделя" },
+                      { days: 30, label: "1 месяц" },
+                    ] as const).map(({ days, label }) => (
+                      <button
+                        key={days}
+                        disabled={actionLoading}
+                        onClick={() => runAdminAction("grant_access", selectedUser.user.id, days)}
+                        className="py-2.5 rounded-lg text-[11px] font-bold cursor-pointer"
+                        style={{ background: "#10B98120", color: "#10B981", border: "1px solid #10B98140" }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-[10px] mt-1.5" style={{ color: "var(--t3)" }}>
+                    Срок суммируется с текущим, если подписка ещё активна
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
                 {selectedUser.user.is_blocked ? (
                   <button disabled={actionLoading} onClick={() => runAdminAction("unblock", selectedUser.user.id)}
                     className="py-2 rounded-lg text-[11px] font-bold" style={{ background: "#10B98120", color: "#10B981", border: "none" }}>
@@ -417,10 +452,6 @@ export default function UsersPage() {
                   className="py-2 rounded-lg text-[11px] font-bold" style={{ background: "#A855F715", color: "#A855F7", border: "none" }}>
                   +30 дн. триал
                 </button>
-                <button disabled={actionLoading} onClick={() => runAdminAction("activate", selectedUser.user.id, 30)}
-                  className="py-2 rounded-lg text-[11px] font-bold" style={{ background: "#6366F115", color: "#6366F1", border: "none" }}>
-                  Активировать 30 дн.
-                </button>
                 <button disabled={actionLoading} onClick={() => runAdminAction("suspend", selectedUser.user.id)}
                   className="py-2 rounded-lg text-[11px] font-bold" style={{ background: "#F59E0B15", color: "#D97706", border: "none" }}>
                   Приостановить
@@ -430,6 +461,7 @@ export default function UsersPage() {
                   Удалить пользователя
                 </button>
               </div>
+              </>
             )}
 
             <button onClick={() => router.push(`/dashboard/admin/subscriptions`)}

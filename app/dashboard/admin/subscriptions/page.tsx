@@ -46,52 +46,41 @@ export default function AdminSubscriptionsPage() {
   }
 
   async function extendManually(userId: string, days: number) {
-    if (!confirm(`Продлить подписку на ${days} дней вручную?`)) return;
+    if (!confirm(`Выдать доступ на ${days} ${days === 1 ? "день" : days < 5 ? "дня" : "дней"}?`)) return;
     setExtending(userId);
-    
+
     try {
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("expires_at, status")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const currentExpiry = sub?.expires_at ? new Date(sub.expires_at) : new Date();
-      const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
-      const newExpiry = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
-
-      await supabase
-        .from("subscriptions")
-        .update({
-          status: "active",
-          expires_at: newExpiry.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-
-      await supabase.from("subscription_events").insert({
-        user_id: userId,
-        event_type: "manual_extension_by_admin",
-        payload: { days_added: days, new_expires_at: newExpiry.toISOString() },
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "grant_access", userId, days }),
       });
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка");
       await loadUsers();
-      alert("✅ Подписка продлена");
-    } catch (err: any) {
-      alert("❌ Ошибка: " + err.message);
+      alert("✅ " + (data.message || "Доступ выдан"));
+    } catch (err: unknown) {
+      alert("❌ Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
     }
     setExtending(null);
   }
 
-  async function blockUser(userId: string) {
-    if (!confirm("Заблокировать подписку пользователя?")) return;
-    await supabase
-      .from("subscriptions")
-      .update({ status: "suspended", updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
-    await loadUsers();
+  async function suspendUser(userId: string) {
+    if (!confirm("Приостановить подписку пользователя?")) return;
+    setExtending(userId);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "suspend", userId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка");
+      await loadUsers();
+    } catch (err: unknown) {
+      alert("❌ " + (err instanceof Error ? err.message : "Ошибка"));
+    }
+    setExtending(null);
   }
 
   if (!isAdmin || loading) {
@@ -198,21 +187,27 @@ export default function AdminSubscriptionsPage() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
-                  <button onClick={() => extendManually(u.user_id, 30)} disabled={extending === u.user_id}
-                    className="text-[10px] cursor-pointer px-3 py-1 rounded font-semibold"
-                    style={{ background: "#10B98115", color: "#10B981", border: "none" }}>
-                    +30 дней
-                  </button>
-                  <button onClick={() => extendManually(u.user_id, 365)} disabled={extending === u.user_id}
-                    className="text-[10px] cursor-pointer px-3 py-1 rounded font-semibold"
-                    style={{ background: "#10B98115", color: "#10B981", border: "none" }}>
-                    +1 год
-                  </button>
+                  {([
+                    { days: 2, label: "+2 дня" },
+                    { days: 7, label: "+1 нед." },
+                    { days: 30, label: "+1 мес." },
+                    { days: 365, label: "+1 год" },
+                  ] as const).map(({ days, label }) => (
+                    <button
+                      key={days}
+                      onClick={() => extendManually(u.user_id, days)}
+                      disabled={extending === u.user_id}
+                      className="text-[10px] cursor-pointer px-3 py-1 rounded font-semibold"
+                      style={{ background: "#10B98115", color: "#10B981", border: "none" }}
+                    >
+                      {label}
+                    </button>
+                  ))}
                   {u.status !== "suspended" && u.profiles?.role !== "admin" && (
-                    <button onClick={() => blockUser(u.user_id)}
+                    <button onClick={() => suspendUser(u.user_id)} disabled={extending === u.user_id}
                       className="text-[10px] cursor-pointer px-3 py-1 rounded font-semibold"
                       style={{ background: "#EF444415", color: "#EF4444", border: "none" }}>
-                      Блок
+                      Приостановить
                     </button>
                   )}
                 </div>
