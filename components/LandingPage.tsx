@@ -88,11 +88,19 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
               </button>
             )}
 
-            <Link href="/auth" className="no-underline">
-              <button className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer" style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t2)" }}>Войти</button>
+            <Link
+              href="/auth"
+              className="no-underline px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer inline-block"
+              style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t2)" }}
+            >
+              Войти
             </Link>
-            <Link href="/auth" className="no-underline">
-              <button className="px-5 py-2 rounded-lg text-white text-xs font-semibold border-none cursor-pointer" style={{ background: landing.gradient }}>Начать бесплатно</button>
+            <Link
+              href="/auth"
+              className="no-underline px-5 py-2 rounded-lg text-white text-xs font-semibold cursor-pointer inline-block"
+              style={{ background: landing.gradient }}
+            >
+              Начать бесплатно
             </Link>
           </div>
         </div>
@@ -125,15 +133,19 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           ))}
         </div>
         <div className="flex gap-3 justify-center mb-6">
-          <Link href="/auth" className="no-underline">
-            <button className="px-8 py-4 rounded-xl text-white font-semibold border-none cursor-pointer" style={{ background: landing.gradient, fontSize: 15 }}>
-              Начать бесплатно →
-            </button>
+          <Link
+            href="/auth"
+            className="no-underline px-8 py-4 rounded-xl text-white font-semibold cursor-pointer inline-block"
+            style={{ background: landing.gradient, fontSize: 15 }}
+          >
+            Начать бесплатно →
           </Link>
-          <Link href="/presentation" className="no-underline">
-            <button className="px-8 py-4 rounded-xl font-semibold cursor-pointer" style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t1)", fontSize: 15 }}>
-              Презентация системы
-            </button>
+          <Link
+            href="/presentation"
+            className="no-underline px-8 py-4 rounded-xl font-semibold cursor-pointer inline-block"
+            style={{ background: "transparent", border: "1px solid var(--brd)", color: "var(--t1)", fontSize: 15 }}
+          >
+            Презентация системы
           </Link>
         </div>
         <div className="text-xs mb-10" style={{ color: "var(--t3)" }}>
@@ -582,10 +594,12 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         <div className="rounded-2xl p-12" style={{ background: landing.ctaGradient }}>
           <h2 className="text-3xl font-extrabold mb-4 text-white" style={{ letterSpacing: "-0.02em" }}>Ведите бизнес в одной системе</h2>
           <p className="text-base mb-6 text-white opacity-90">30 дней бесплатно. CRM, склад, финансы, кадры и налоги — без установки и долгих внедрений.</p>
-          <Link href="/auth" className="no-underline">
-            <button className="px-8 py-4 rounded-xl font-semibold border-none cursor-pointer" style={{ background: "#fff", color: landing.ctaButtonText, fontSize: 15 }}>
-              Начать сейчас →
-            </button>
+          <Link
+            href="/auth"
+            className="no-underline px-8 py-4 rounded-xl font-semibold cursor-pointer inline-block"
+            style={{ background: "#fff", color: landing.ctaButtonText, fontSize: 15 }}
+          >
+            Начать сейчас →
           </Link>
         </div>
       </section>

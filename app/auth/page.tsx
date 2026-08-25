@@ -174,6 +174,7 @@ function AuthForm() {
       <div className="rounded-2xl p-8" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
         <div className="flex gap-2 mb-6">
           <button
+            type="button"
             onClick={() => {
               setIsLogin(true);
               setError("");
@@ -188,6 +189,7 @@ function AuthForm() {
             Вход
           </button>
           <button
+            type="button"
             onClick={() => {
               setIsLogin(false);
               setError("");
