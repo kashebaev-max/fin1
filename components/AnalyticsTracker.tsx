@@ -14,7 +14,7 @@ export default function AnalyticsTracker() {
     if (!pathname) return;
     
     // Не отслеживаем технические страницы
-    if (pathname.startsWith("/api") || pathname.includes("_next")) return;
+    if (pathname.startsWith("/api") || pathname.includes("_next") || pathname === "/auth") return;
     
     // Небольшая задержка чтобы document.title успел установиться
     const timer = setTimeout(() => {

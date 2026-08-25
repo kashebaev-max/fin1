@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter, useSearchParams } from "next/navigation";
-import { isValidEmail, isValidKZPhone, normalizePhone } from "@/lib/auth-utils";
+import { isValidEmail, isValidKZPhone, normalizePhone, formatAuthError, signInWithRetry } from "@/lib/auth-utils";
 import { REQUIRE_EMAIL_CONFIRMATION } from "@/lib/auth-config";
 
 function AuthForm() {
@@ -15,11 +15,12 @@ function AuthForm() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slowConnect, setSlowConnect] = useState(false);
   const [success, setSuccess] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem("finerp-theme") : null;
@@ -32,7 +33,18 @@ function AuthForm() {
       setError("Подтвердите email — проверьте почту (и папку «Спам»).");
       setPendingConfirm(true);
     }
-  }, [searchParams]);
+
+    supabase.auth.getSession().catch(() => {});
+  }, [searchParams, supabase]);
+
+  useEffect(() => {
+    if (!loading) {
+      setSlowConnect(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowConnect(true), 2000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   async function resendConfirmation() {
     if (!email.trim()) {
@@ -68,11 +80,7 @@ function AuthForm() {
       }
 
       if (isLogin) {
-        const { data, error: signInErr } = await supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password,
-        });
-        if (signInErr) throw signInErr;
+        const data = await signInWithRetry(supabase, trimmedEmail, password);
 
         if (REQUIRE_EMAIL_CONFIRMATION && data.user && !data.user.email_confirmed_at) {
           await supabase.auth.signOut();
@@ -82,18 +90,8 @@ function AuthForm() {
           );
         }
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_blocked")
-          .eq("id", data.user!.id)
-          .maybeSingle();
-
-        if (profile?.is_blocked) {
-          await supabase.auth.signOut();
-          throw new Error("Аккаунт заблокирован. Обратитесь в поддержку.");
-        }
-
-        window.location.assign("/dashboard");
+        router.replace("/dashboard");
+        router.refresh();
         return;
       } else {
         if (!fullName.trim()) throw new Error("Укажите ФИО");
@@ -120,7 +118,8 @@ function AuthForm() {
 
         if (data.session) {
           setSuccess("Регистрация успешна! Тестовый период 30 дней активирован.");
-          window.location.assign("/dashboard");
+          router.replace("/dashboard");
+          router.refresh();
           return;
         }
 
@@ -139,8 +138,7 @@ function AuthForm() {
         setIsLogin(true);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Произошла ошибка";
-      setError(message);
+      setError(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -302,7 +300,7 @@ function AuthForm() {
             className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-50"
             style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)" }}
           >
-            {loading ? "Загрузка..." : isLogin ? "Войти" : "Зарегистрироваться"}
+            {loading ? (slowConnect ? "Подключение к серверу..." : "Загрузка...") : isLogin ? "Войти" : "Зарегистрироваться"}
           </button>
 
           {REQUIRE_EMAIL_CONFIRMATION && (pendingConfirm || isLogin) && (
