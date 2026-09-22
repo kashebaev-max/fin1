@@ -96,7 +96,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
               Войти
             </a>
             <a
-              href="/auth"
+              href="/auth?mode=signup"
               className="no-underline px-5 py-2 rounded-lg text-white text-xs font-semibold cursor-pointer inline-block flex-shrink-0"
               style={{ background: landing.gradient }}
             >
@@ -112,9 +112,9 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           <span style={{ fontSize: 11, fontWeight: 700, color: landing.heroBadge.color, letterSpacing: "0.05em" }}>⚡ НОВЫЙ НАЛОГОВЫЙ КОДЕКС РК 2026 • ЗРК 214-VIII</span>
         </div>
         <h1 className="text-5xl font-extrabold mb-6" style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}>
-          Умный помощник<br />
+          Документы, склад и финансы<br />
           <span style={{ background: landing.gradientText, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            для вашего бизнеса
+            для бизнеса в Казахстане
           </span>
         </h1>
         <p className="text-lg mb-6 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
@@ -134,7 +134,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         </div>
         <div className="flex gap-3 justify-center mb-6">
           <a
-            href="/auth"
+            href="/auth?mode=signup"
             className="no-underline px-8 py-4 rounded-xl text-white font-semibold cursor-pointer inline-block"
             style={{ background: landing.gradient, fontSize: 15 }}
           >
@@ -149,7 +149,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           </a>
         </div>
         <div className="text-xs mb-10" style={{ color: "var(--t3)" }}>
-          ✓ Без установки &nbsp;&nbsp; ✓ Замена 1С и Excel &nbsp;&nbsp; ✓ Kaspi-оплата &nbsp;&nbsp; ✓ Поддержка 💬 на сайте
+          ✓ Без установки &nbsp;&nbsp; ✓ Учёт в одном окне &nbsp;&nbsp; ✓ Kaspi-оплата &nbsp;&nbsp; ✓ Поддержка 💬 на сайте
         </div>
         <div className="max-w-4xl mx-auto">
           <LandingVisual src={images.hero} alt="Главная панель Finstat — KPI, графики и рекомендации Жанары" priority />
@@ -233,12 +233,12 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           <h2 className="text-4xl font-extrabold mb-4" style={{ letterSpacing: "-0.03em", lineHeight: 1.15 }}>
             Сфотографировал чек —<br />
             <span style={{ background: landing.ocrHeadlineGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              готовая запись за 10 секунд
+              данные для проверки и сохранения
             </span>
           </h2>
           <p className="text-base max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
-            AI Жанара читает любой документ. Распознаёт суммы, БИН, даты, позиции — <br />
-            и сама создаёт записи в системе. Никакого ручного ввода.
+            AI Жанара помогает распознать суммы, БИН, даты и позиции — <br />
+            проверьте результат и подтвердите создание записей.
           </p>
         </div>
 
@@ -247,20 +247,20 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         </div>
 
         {/* 3-шаговая визуализация */}
-        <div className="grid grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
           {[
             { 
               step: "1", 
               icon: "📷", 
               title: "Сфотографируй", 
-              desc: "Открой камеру телефона или загрузи JPG/PNG/PDF. Подойдёт любой документ — чек, счёт-фактура, накладная, акт.",
+              desc: "Открой камеру телефона или загрузи JPG/PNG/PDF. Поддерживаются чек, счёт-фактура, накладная, акт.",
               color: landing.stepColors[0]
             },
             { 
               step: "2", 
               icon: "✦", 
               title: "AI распознаёт", 
-              desc: "Claude Vision API за 5-10 секунд извлекает поставщика, БИН, дату, позиции, НДС 16%, итоговую сумму.",
+              desc: "AI извлекает реквизиты и суммы. Точность и скорость зависят от качества и объёма документа.",
               color: landing.stepColors[1]
             },
             { 
@@ -283,13 +283,13 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         {/* Сравнение времени */}
         <div className="rounded-2xl p-8 mb-10" style={{ background: landing.ocrCompareBg, border: `1px solid ${landing.ocrCompareLabel}30` }}>
           <div className="text-center text-xs font-bold tracking-widest mb-6" style={{ color: landing.ocrCompareLabel }}>✦ ЭКОНОМИЯ ВРЕМЕНИ</div>
-          <div className="grid grid-cols-2 gap-6 max-w-3xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
             <div className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid #EF444440" }}>
               <div className="flex items-center gap-2 mb-3">
                 <span style={{ fontSize: 20 }}>❌</span>
                 <span className="text-sm font-bold" style={{ color: "#EF4444" }}>В 1С вручную</span>
               </div>
-              <div className="text-3xl font-extrabold mb-2" style={{ color: "#EF4444" }}>5 минут</div>
+              <div className="text-3xl font-extrabold mb-2" style={{ color: "#EF4444" }}>Ручной ввод</div>
               <div className="text-xs" style={{ color: "var(--t3)", lineHeight: 1.6 }}>
                 Открыть → выбрать тип документа → создать контрагента → создать товары → провести → проверить
               </div>
@@ -299,7 +299,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
                 <span style={{ fontSize: 20 }}>✅</span>
                 <span className="text-sm font-bold" style={{ color: "#10B981" }}>В Finstat через AI</span>
               </div>
-              <div className="text-3xl font-extrabold mb-2" style={{ color: "#10B981" }}>10 секунд</div>
+              <div className="text-3xl font-extrabold mb-2" style={{ color: "#10B981" }}>Распознавание</div>
               <div className="text-xs" style={{ color: "var(--t3)", lineHeight: 1.6 }}>
                 📸 Сфотографировал → ✦ AI распознал → ✓ Создал в системе. Всё.
               </div>
@@ -307,7 +307,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           </div>
           <div className="text-center mt-6">
             <div className="text-sm font-bold" style={{ background: landing.gradientText, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              В 30 раз быстрее. На каждом документе экономишь 4 минуты.
+              Меньше ручного ввода. Проверяйте распознанные данные перед сохранением.
             </div>
           </div>
         </div>
@@ -334,7 +334,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
 
         {/* Powered by */}
         <div className="text-center mt-8 text-xs" style={{ color: "var(--t3)" }}>
-          ✦ Powered by <b style={{ color: "var(--t2)" }}>Anthropic Claude</b> — самый продвинутый AI в мире
+          ✦ Powered by <b style={{ color: "var(--t2)" }}>Anthropic Claude</b> — распознавание документов и помощь с вопросами
         </div>
       </section>
 
@@ -342,7 +342,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
       <section id="ai" className="max-w-6xl mx-auto px-6 py-16">
         <div className="rounded-2xl p-12 text-center" style={{ background: landing.aiBlock.bg, border: `1px solid ${landing.aiBlock.border}` }}>
           <div className="text-xs font-bold tracking-widest mb-3" style={{ color: landing.aiBlock.label }}>✦ AI ЖАНАРА</div>
-          <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>AI-ассистент для вашего бизнеса</h2>
+          <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: "-0.02em" }}>AI-ассистент для бизнеса в Казахстане</h2>
           <p className="text-base mb-8 max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
             Жанара не просто отвечает на вопросы — она <b>видит все процессы</b> в вашей системе,<br />
             анализирует данные и <b>подсказывает, что важно не упустить</b>.
@@ -352,7 +352,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
             <LandingVisual src={images.zhanara} alt="Чат с AI Жанарой — вопросы по дебиторке и рекомендации" />
           </div>
 
-          <div className="grid grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
             <div className="p-4 rounded-xl text-left" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
               <div className="text-xl mb-2">💬</div>
               <div className="text-sm font-bold mb-1" style={{ color: "var(--t1)" }}>Консультации</div>
@@ -413,7 +413,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         </div>
 
         {/* 3 главных фичи */}
-        <div className="grid grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
           {/* Табель */}
           <div className="rounded-xl p-6" style={{ background: "var(--card)", border: "1px solid var(--brd)", borderTop: `3px solid ${landing.accent}` }}>
             <div className="text-3xl mb-3">⏰</div>
@@ -447,12 +447,12 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
             <div className="text-3xl mb-3">🤒</div>
             <div className="text-base font-bold mb-2">Больничные</div>
             <div className="text-xs mb-4" style={{ color: "var(--t3)", lineHeight: 1.6 }}>
-              По стажу 60%/80%/100% автоматом. Делим на 3 дня работодателя и остаток за счёт ГФСС.
+              Модуль расчёта больничных проходит проверку. Перед начислением необходима проверка бухгалтером.
             </div>
             <div className="flex flex-col gap-1 text-[10px]" style={{ color: "var(--t2)" }}>
-              <div>🏢 1-3 день — работодатель</div>
-              <div>🏛 С 4 дня — ГФСС</div>
-              <div>📊 Стаж определяет процент</div>
+              <div>🏢 Проверка основания начисления</div>
+              <div>📅 Проверка оплачиваемых рабочих дней</div>
+              <div>📊 Проверка среднего заработка и лимитов</div>
             </div>
           </div>
         </div>
@@ -564,6 +564,17 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
         </div>
       </section>
 
+      <section id="pricing" className="max-w-4xl mx-auto px-6 py-12 text-center">
+        <h2 className="text-3xl font-extrabold mb-4">30 дней бесплатно, затем — подписка</h2>
+        <p className="mb-6" style={{ color: "var(--t2)" }}>Проверьте работу системы на своих задачах в течение пробного периода.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-xl p-6" style={{ border: "1px solid var(--brd)" }}><b className="text-2xl">10 000 ₸</b><p>за месяц</p></div>
+          <div className="rounded-xl p-6" style={{ border: "1px solid var(--brd)" }}><b className="text-2xl">100 000 ₸</b><p>за год · экономия 20 000 ₸</p></div>
+        </div>
+        <p className="text-sm mt-5" style={{ color: "var(--t2)" }}>После окончания оплаченного или пробного периода создание и изменение данных могут быть ограничены. Просмотр ранее введённых данных сохраняется.</p>
+        <a href="/auth?mode=signup" className="inline-block mt-6 px-6 py-3 rounded-xl text-white" style={{ background: "var(--accent)" }}>Попробовать бесплатно</a>
+      </section>
+
       {/* FAQ */}
       <section id="faq" className="max-w-3xl mx-auto px-6 py-16">
         <div className="text-center mb-10">
@@ -573,11 +584,11 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           {[
             { q: "Для кого подходит Finstat.kz?", a: "Для предпринимателей, собственников и команд, которым нужна единая система ведения бизнеса: продажи, склад, деньги, кадры, налоги и отчётность в одном месте. Также для бухгалтеров и финансовых специалистов, которые хотят работать быстрее и без лишних программ." },
             ...LANDING_FAQ_EXTRA,
-            { q: "Как работает OCR сканер документов?", a: "Сфотографируйте чек, счёт-фактуру или накладную с телефона — или загрузите JPG/PNG/PDF. AI на основе Claude Vision за 5-10 секунд распознаёт поставщика, БИН, дату, позиции, НДС. Подтверждаете — и в системе уже готовы контрагент, товары и проводки." },
+            { q: "Как работает OCR сканер документов?", a: "Сфотографируйте чек, счёт-фактуру или накладную с телефона — или загрузите JPG/PNG/PDF. AI на основе Claude Vision распознаёт поставщика, БИН, дату, позиции, НДС. Подтверждаете — и в системе уже готовы контрагент, товары и проводки." },
             { q: "Мои данные в безопасности?", a: "Да. Данные хранятся на защищённых серверах (Frankfurt, EU). Каждый пользователь видит только свои данные. Резервное копирование автоматическое." },
             { q: "Как подготовить отчёт ФНО?", a: "Система автоматически собирает данные за период из проводок и документов, рассчитывает суммы по НК РК 2026 и формирует XML для загрузки в личный кабинет КГД. Сдача в налоговый орган выполняется вами — как при работе с любой учётной программой." },
             { q: "Работает ли на телефоне?", a: "Да, полноценно. Открываете finstat.kz в браузере телефона и получаете всю систему в кармане. Особенно удобно сканировать документы через камеру." },
-            { q: "Что с обновлениями при изменении НК РК?", a: "Обновления автоматические. В день вступления в силу нового закона — система уже работает по новым правилам." },
+            { q: "Что с обновлениями при изменении НК РК?", a: "Обновления автоматические. Перед расчётом проверяйте применяемые ставки и актуальность правил." },
             { q: "Сколько стоит подписка?", a: "30 дней бесплатно при регистрации. После — 10 000 ₸/мес или 100 000 ₸/год (экономия 16.7%). Оплата через Kaspi за 30 секунд." },
             { q: "На каких языках поддержка?", a: "Поддержка доступна на русском и казахском языках. Интерфейс — на русском." },
           ].map((f, i) => (
@@ -595,7 +606,7 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           <h2 className="text-3xl font-extrabold mb-4 text-white" style={{ letterSpacing: "-0.02em" }}>Ведите бизнес в одной системе</h2>
           <p className="text-base mb-6 text-white opacity-90">30 дней бесплатно. CRM, склад, финансы, кадры и налоги — без установки и долгих внедрений.</p>
           <a
-            href="/auth"
+            href="/auth?mode=signup"
             className="no-underline px-8 py-4 rounded-xl font-semibold cursor-pointer inline-block"
             style={{ background: "#fff", color: landing.ctaButtonText, fontSize: 15 }}
           >

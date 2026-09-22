@@ -5,7 +5,14 @@ const REQUIRE_EMAIL_CONFIRMATION =
   process.env.NEXT_PUBLIC_REQUIRE_EMAIL_CONFIRMATION === "true";
 
 export async function middleware(request: NextRequest) {
+  // Public entry must render even when the authentication service is unavailable.
+  if (request.nextUrl.pathname === "/auth") return NextResponse.next({ request });
   let supabaseResponse = NextResponse.next({ request });
+  function redirectWithCookies(url: URL) {
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie));
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +42,7 @@ export async function middleware(request: NextRequest) {
   if (!user && pathname.startsWith("/dashboard")) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth";
-    return NextResponse.redirect(url);
+    return redirectWithCookies(url);
   }
 
   if (user && pathname.startsWith("/dashboard")) {
@@ -44,7 +51,7 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth";
       url.searchParams.set("confirm", "required");
-      return NextResponse.redirect(url);
+      return redirectWithCookies(url);
     }
 
     const { data: profile } = await supabase
@@ -58,19 +65,13 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth";
       url.searchParams.set("blocked", "1");
-      return NextResponse.redirect(url);
+      return redirectWithCookies(url);
     }
-  }
-
-  if (user && pathname === "/auth") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
   }
 
   return supabaseResponse;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/auth"],
+  matcher: ["/dashboard/:path*"],
 };

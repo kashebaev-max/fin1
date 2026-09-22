@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import JanaraSidePanel from "./JanaraSidePanel";
+import dynamic from "next/dynamic";
+const JanaraSidePanel = dynamic(() => import("./JanaraSidePanel"), { loading: () => <div role="status">Загрузка…</div> });
 import { getModuleKeyFromPath, getModuleContext } from "@/lib/module-contexts";
 
 export default function JanaraButton() {
