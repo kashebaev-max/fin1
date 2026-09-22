@@ -16,12 +16,16 @@ export default function DashboardPage() {
     lowStockItems: [] as any[], topDebtors: [] as any[],
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => { loadStats(); }, []);
 
   async function loadStats() {
+    setLoading(true);
+    setLoadError("");
+    try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) throw new Error("Сессия завершена. Войдите в аккаунт снова.");
 
     const now = new Date();
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -36,6 +40,9 @@ export default function DashboardPage() {
       supabase.from("journal_entries").select("*").eq("user_id", user.id).gte("entry_date", sixMonthsAgo),
     ]);
 
+    if ([docs, emps, prods, cashOps, bankOps, journal].some(result => result.error)) {
+      throw new Error("Не удалось загрузить данные. Проверьте подключение и повторите попытку.");
+    }
     const allDocs = docs.data || [];
     const allEmps = emps.data || [];
     const allProds = prods.data || [];
@@ -110,11 +117,17 @@ export default function DashboardPage() {
       recentDocs: allDocs.slice(0, 5), revenueByMonth,
       lowStockItems, topDebtors,
     });
-    setLoading(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Не удалось загрузить данные.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const netCashFlow = stats.revenueMonth - stats.expensesMonth;
   const maxRevenue = Math.max(1, ...stats.revenueByMonth.map(m => m.revenue));
+
+  if (loadError) return <div role="alert" className="p-6"><p>{loadError}</p><button type="button" onClick={loadStats}>Повторить</button> · <Link href="/auth">Войти</Link></div>;
 
   if (loading) return <div className="text-center py-20 text-sm" style={{ color: "var(--t3)" }}>Загрузка данных...</div>;
 
@@ -136,7 +149,7 @@ export default function DashboardPage() {
       </Link>
 
       {/* Financial KPIs — 4 cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KPICard label="Касса + Банк" value={fmtMoney(stats.cashBalance + stats.bankBalance) + " ₸"}
           subtitle={`Касса: ${fmtMoney(stats.cashBalance)} | Банк: ${fmtMoney(stats.bankBalance)}`}
           color="#6366F1" icon="💰" />
@@ -153,8 +166,8 @@ export default function DashboardPage() {
       <AIInsightsPanel />
 
       {/* Revenue chart + Month summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2 rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
           <div className="flex justify-between items-center mb-4">
             <div className="text-sm font-bold">Выручка за 6 месяцев</div>
             <div className="text-xs" style={{ color: "var(--t3)" }}>Всего: {fmtMoney(stats.revenueByMonth.reduce((a, m) => a + m.revenue, 0))} ₸</div>
@@ -192,7 +205,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Low stock + Debtors + Recent docs */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Low stock alert */}
         <div className="rounded-xl p-5" style={{ background: "var(--card)", border: "1px solid var(--brd)" }}>
           <div className="flex justify-between items-center mb-3">

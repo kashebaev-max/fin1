@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import DocumentScanner from "./DocumentScanner";
+import dynamic from "next/dynamic";
+const DocumentScanner = dynamic(() => import("./DocumentScanner"), { loading: () => <div role="status">Загрузка…</div> });
 
 // Кнопка для запуска сканера. 
 // Размещается в layout dashboard (рядом с уведомлениями).
@@ -26,7 +27,7 @@ export default function ScannerButton() {
         <span className="hidden sm:inline">Сканировать</span>
       </button>
 
-      <DocumentScanner isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      {isOpen && <DocumentScanner isOpen={isOpen} onClose={() => setIsOpen(false)} />}
     </>
   );
 }
