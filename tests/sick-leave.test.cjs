@@ -1,0 +1,18 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const ts = require('typescript');
+const context = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/hr.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, context);
+const calculate = context.exports.calculateSickLeave;
+const input = { startDate: '2026-09-01', endDate: '2026-09-10', averageDailyWage: 10000, workingDays: 8, previouslyAccrued: 0 };
+test('uses supplied workdays and pays full average without tenure or fund split', () => { assert.equal(calculate(input).grossAmount, 80000); });
+test('caps standard monthly benefit at 25 MRP', () => { assert.equal(calculate({ ...input, averageDailyWage: 20000 }).grossAmount, 108125); });
+test('previous monthly benefits reduce remaining cap', () => { assert.equal(calculate({ ...input, previouslyAccrued: 100000 }).grossAmount, 8125); });
+test('exhausted cap cannot produce a negative benefit', () => { assert.equal(calculate({ ...input, previouslyAccrued: 120000 }).grossAmount, 0); });
+test('no payable workdays means zero', () => { assert.equal(calculate({ ...input, workingDays: 0 }).grossAmount, 0); });
+test('rejects cross-month periods instead of sharing one cap', () => { assert.throws(() => calculate({ ...input, endDate: '2026-10-05' })); });
+test('rejects unsupported years, reversed and impossible dates', () => { for (const patch of [{ startDate: '2025-09-01' }, { startDate: '2026-09-11' }, { startDate: '2026-02-30' }]) assert.throws(() => calculate({ ...input, ...patch })); });
+test('rejects invalid earnings, workdays and prior totals', () => { for (const patch of [{ averageDailyWage: NaN }, { averageDailyWage: -1 }, { workingDays: 11 }, { workingDays: 1.5 }, { previouslyAccrued: -1 }, { previouslyAccrued: Infinity }]) assert.throws(() => calculate({ ...input, ...patch })); });
+test('rounds money to two decimal places', () => { assert.equal(calculate({ ...input, averageDailyWage: 1234.56, workingDays: 3 }).grossAmount, 3703.68); });

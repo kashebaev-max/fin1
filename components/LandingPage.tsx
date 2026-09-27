@@ -399,12 +399,12 @@ export default function LandingPage({ variant = "default", showPreviewBanner = f
           <h2 className="text-4xl font-extrabold mb-4" style={{ letterSpacing: "-0.03em", lineHeight: 1.15 }}>
             Кадры без головной боли.<br />
             <span style={{ background: landing.hrHeadlineGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Расчёты — за вас по ТК РК
+              Табель и расчёты в одном месте
             </span>
           </h2>
           <p className="text-base max-w-2xl mx-auto" style={{ color: "var(--t2)" }}>
-            Табель Т-13 автозаполняется на весь месяц. Отпускные и больничные<br />
-            рассчитываются автоматически по всем нормам ТК РК.
+            Табель Т-13, учёт сотрудников и предварительные расчёты.<br />
+            Начисления необходимо проверить перед проведением.
           </p>
         </div>
 
