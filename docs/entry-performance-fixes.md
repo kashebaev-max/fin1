@@ -20,10 +20,10 @@
 
 ## Unresolved, do not describe as fixed
 
-1. `lib/hr.ts` calculates sick leave using tenure percentages and a three-day employer split; `app/dashboard/sick-leaves/page.tsx` uses calendar days and salary / 22. Proper Kazakhstan calculation needs actual average earnings, scheduled working days, monthly limits and exceptions, payroll deductions and accounting validation. Existing records have not been recalculated. Landing states that verification is pending.
+1. Superseded by the sick-leave remediation described in `sick-leave-remediation.md`. Payroll deductions, exceptional categories and posting remain pending; historical records require review.
 2. Legal offer still lacks the actual operator's verified name and identifiers. Supply these before editing.
 3. Dashboard financial formulas and unpaginated queries remain unaudited; totals may be incomplete above API row limits. Database aggregates need tenant/RLS and accountant-reviewed definitions before implementation.
-4. No live sign-up, payment, billing or document workflow was tested. No production database mutation or deployment performed.
+4. No live sign-up, payment, billing or document workflow was tested. No production database mutation performed. PR #1 was merged after successful Netlify preview checks; production verification is recorded in the release follow-up.
 5. No measured user speed improvement or registration uplift is claimed. Measure real Web Vitals and funnel after deployment.
 6. Infrastructure location and personal-data compliance require separate assessment; no hosting migration performed.
 

@@ -119,62 +119,33 @@ export function calculateWorkExperience(startDate: string | null): number {
   return Math.max(0, years);
 }
 
-// ═══════════════════════════════════════════
-// КОЭФФИЦИЕНТ БОЛЬНИЧНОГО ПО СТАЖУ
-// ═══════════════════════════════════════════
-
-export function sickLeaveRate(experienceYears: number): number {
-  if (experienceYears < 1) return 60;
-  if (experienceYears < 5) return 80;
-  return 100;
-}
-
-// ═══════════════════════════════════════════
-// РАСЧЁТ БОЛЬНИЧНОГО ПО НК/ТК РК
-// ═══════════════════════════════════════════
-
-export interface SickLeaveCalculation {
-  averageDailyWage: number;     // средний дневной заработок
-  paymentRate: number;           // 60/80/100%
-  employerDays: number;          // дни за счёт работодателя (макс 3)
-  employerAmount: number;        // сумма работодателя
-  gfssDays: number;              // дни за счёт ГФСС
-  gfssAmount: number;            // сумма ГФСС
-  totalAmount: number;           // всего начислено
-  ipnAmount: number;             // ИПН 10%
-  netAmount: number;             // на руки
-}
-
-export function calculateSickLeave(
-  averageDailyWage: number,
-  totalDays: number,
-  experienceYears: number
-): SickLeaveCalculation {
-  const rate = sickLeaveRate(experienceYears);
-  const dailyAmount = averageDailyWage * (rate / 100);
-  
-  const employerDays = Math.min(3, totalDays);
-  const gfssDays = Math.max(0, totalDays - 3);
-  
-  const employerAmount = Math.round(dailyAmount * employerDays);
-  const gfssAmount = Math.round(dailyAmount * gfssDays);
-  const totalAmount = employerAmount + gfssAmount;
-  
-  // ИПН 10% с части работодателя (с ГФСС - не удерживается обычно, но зависит от учётной политики)
-  const ipnAmount = Math.round(employerAmount * 0.10);
-  const netAmount = totalAmount - ipnAmount;
-  
-  return {
-    averageDailyWage,
-    paymentRate: rate,
-    employerDays,
-    employerAmount,
-    gfssDays,
-    gfssAmount,
-    totalAmount,
-    ipnAmount,
-    netAmount,
-  };
+// Standard Kazakhstan temporary disability benefit, before payroll deductions.
+// Sources: https://www.gov.kz/situations/55/202?lang=ru
+// https://www.gov.kz/article/17157 (2026 MRP = 4325).
+// Special categories and other years require separate accounting review.
+export function calculateSickLeave(input: {
+  startDate: string; endDate: string; averageDailyWage: number;
+  workingDays: number; previouslyAccrued: number;
+}) {
+  const { startDate, endDate, averageDailyWage, workingDays, previouslyAccrued } = input;
+  const validDate = (value: string) => /^2026-\d{2}-\d{2}$/.test(value)
+    && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+  if (!validDate(startDate) || !validDate(endDate) || endDate < startDate)
+    throw new Error("Укажите корректный период в 2026 году.");
+  if (startDate.slice(0, 7) !== endDate.slice(0, 7))
+    throw new Error("Разделите больничный по календарным месяцам и рассчитайте каждый месяц отдельно.");
+  const calendarDays = (Date.parse(endDate) - Date.parse(startDate)) / 86400000 + 1;
+  if (!Number.isFinite(averageDailyWage) || averageDailyWage <= 0 || averageDailyWage > 1e9)
+    throw new Error("Укажите проверенный средний дневной заработок.");
+  if (!Number.isInteger(workingDays) || workingDays < 0 || workingDays > calendarDays)
+    throw new Error("Рабочие дни должны быть целым числом от 0 до количества дней периода.");
+  if (!Number.isFinite(previouslyAccrued) || previouslyAccrued < 0 || previouslyAccrued > 1e9)
+    throw new Error("Укажите неотрицательную сумму уже начисленных пособий за месяц.");
+  const monthlyLimit = 25 * 4325;
+  const remainingLimit = Math.max(0, monthlyLimit - previouslyAccrued);
+  const uncappedAmount = Math.round(averageDailyWage * workingDays * 100) / 100;
+  const grossAmount = Math.round(Math.min(uncappedAmount, remainingLimit) * 100) / 100;
+  return { calendarDays, workingDays, monthlyLimit, remainingLimit, uncappedAmount, grossAmount };
 }
 
 // ═══════════════════════════════════════════
